@@ -131,32 +131,15 @@ const Login = () => {
   };
 
   return (
-    <div className="login-container" style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: '#f3f4f6',
-      padding: '1rem'
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        padding: '2rem',
-        borderRadius: '8px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-        width: '100%',
-        maxWidth: '400px'
-      }}>
+    <div className="login-container">
+      <div>
         {!showForgotPassword ? (
           <>
-            <h2 style={{textAlign: 'center', marginBottom: '1.5rem', color: '#1f2937'}}>
-              Login to Your Account
-            </h2>
-            <form onSubmit={handleLogin} style={{marginBottom: '1rem'}}>
-              <div style={{marginBottom: '1rem'}}>
-                <label style={{display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500'}}>
-                  Username:
-                </label>
+            <h2>Login to Your Account</h2>
+            <p className="subtitle">Welcome back! Please sign in to continue</p>
+            <form onSubmit={handleLogin}>
+              <div>
+                <label>Username:</label>
                 <input 
                   type="text" 
                   value={username} 

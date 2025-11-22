@@ -4,6 +4,7 @@ import '../styles/Dashboard.css'
 import ReceiptList from './ReceiptList'
 import DeliveryList from './DeliveryList'
 import Stock from './Stock'
+import Navbar from '../components/Navbar'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -25,27 +26,15 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
-      {currentPage === 'dashboard' && (
-        <>
-          <header className="dashboard-header">
-            <div className="header-content">
-              <h1>Dashboard</h1>
-              <nav className="tabs">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    <span className="tab-label">{tab.label}</span>
-                  </button>
-                ))}
-              </nav>
-              <button className="btn-logout" onClick={handleLogout}>Logout</button>
-            </div>
-          </header>
-
-          <main className="dashboard-content">
+      <Navbar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onLogout={handleLogout} 
+      />
+      
+      <main className="dashboard-content">
+        {currentPage === 'dashboard' && (
+          <>
             {activeTab === 'dashboard' && (
               <div className="dashboard-grid">
                 {/* Receipt Card */}
@@ -126,17 +115,17 @@ export default function Dashboard() {
                 <p>Settings content goes here</p>
               </div>
             )}
-          </main>
-        </>
-      )}
+          </>
+        )}
 
-      {currentPage === 'receipt' && (
-        <ReceiptList onBack={() => setCurrentPage('dashboard')} />
-      )}
+        {currentPage === 'receipt' && (
+          <ReceiptList onBack={() => setCurrentPage('dashboard')} />
+        )}
 
-      {currentPage === 'delivery' && (
-        <DeliveryList onBack={() => setCurrentPage('dashboard')} />
-      )}
+        {currentPage === 'delivery' && (
+          <DeliveryList onBack={() => setCurrentPage('dashboard')} />
+        )}
+      </main>
     </div>
   )
 }

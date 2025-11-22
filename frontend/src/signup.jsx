@@ -61,6 +61,7 @@ function Signup() {
     <div className="login-container">
       <div>
         <h2>Create New Account</h2>
+        <p className="subtitle">Join us today! Fill in your details to get started</p>
         <form onSubmit={handleSignup}>
           <div>
             <label>Login ID:</label>

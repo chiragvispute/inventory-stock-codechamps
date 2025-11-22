@@ -2,111 +2,35 @@
   width: 100%;
   min-height: 100vh;
   background-color: #fafbfc;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
 }
 
-.dashboard-header {
-  background-color: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  padding: 0;
-}
-
-.header-content {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.dashboard-header h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1f2937;
-  padding: 24px 40px;
-  margin: 0;
-  border-bottom: none;
-  letter-spacing: -0.5px;
-}
-
-.btn-logout {
-  padding: 10px 20px;
-  background-color: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  margin-right: 24px;
-}
-
-.btn-logout:hover {
-  background-color: #dc2626;
-}
-
-/* Tabs Navigation */
-.tabs {
-  display: flex;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-  background-color: #fff;
-  border-top: 1px solid #f3f4f6;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 14px 24px;
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  font-size: 14px;
-  font-weight: 500;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  margin: 0;
-  position: relative;
-}
-
-.tab:hover {
-  color: #1f2937;
-  background-color: #f9fafb;
-}
-
-.tab.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
-  background-color: #fff;
-  font-weight: 600;
-}
-
-.tab-icon {
-  font-size: 16px;
-  display: inline-flex;
-}
-
-.tab-label {
-  display: none;
-}
-
-@media (min-width: 768px) {
-  .tab-label {
-    display: inline;
-  }
-}
-
-/* Dashboard Content */
+/* Main Content Area */
 .dashboard-content {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 40px;
+  padding: 32px 24px;
 }
+
+/* Tab Content */
+.tab-content {
+  padding: 32px 0;
+}
+
+.tab-content h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 16px;
+}
+
+.tab-content p {
+  font-size: 16px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* Dashboard Grid */
 
 .dashboard-grid {
   display: grid;
