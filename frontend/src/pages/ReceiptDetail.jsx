@@ -1,38 +1,102 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import '../styles/ReceiptDetail.css'
 import ContactDetail from '../components/ContactDetail'
 
 export default function ReceiptDetail({ onBack, receiptId = null }) {
   const [receipt, setReceipt] = useState({
-    id: receiptId || 'WH/IN/0001',
-    receiveFrom: 'Harshal Bhave',
+    id: '',
+    receiveFrom: '',
     responsible: '',
     scheduledDate: '',
-    status: 'draft', // draft, ready, done
-    products: [{ id: 1, name: '', quantity: '' }]
+    status: 'draft',
+    products: []
   })
 
-  const [products, setProducts] = useState([
-    { id: 1, name: '', quantity: '' }
-  ])
-
+  const [products, setProducts] = useState([])
   const [selectedContact, setSelectedContact] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const [contactData, setContactData] = useState({
-    name: receipt.receiveFrom,
-    email: 'harshal@gmail.com',
-    phone: '+91 9876543210',
-    company: 'ABC Company',
-    jobPosition: 'Sales Director',
-    gstin: 'BE0477472701',
-    street: '123 Business Street',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    zip: '400001',
-    country: 'India',
-    website: 'https://www.example.com',
-    tags: 'B2B, VIP, Consulting'
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    jobPosition: '',
+    gstin: '',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: '',
+    website: '',
+    tags: ''
   })
+
+  useEffect(() => {
+    if (receiptId) {
+      fetchReceiptDetail()
+    } else {
+      // Initialize new receipt
+      setReceipt({
+        id: 'WH/IN/NEW',
+        receiveFrom: '',
+        responsible: '',
+        scheduledDate: new Date().toISOString().split('T')[0],
+        status: 'draft',
+        products: []
+      })
+      setProducts([{ id: 1, name: '', quantity: '', expectedQuantity: '', unitCost: '' }])
+    }
+  }, [receiptId])
+
+  const fetchReceiptDetail = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5001/api/receipts/${receiptId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch receipt details')
+      }
+
+      const data = await response.json()
+      setReceipt({
+        id: data.reference,
+        receiveFrom: data.supplier_name || 'Unknown Supplier',
+        responsible: data.responsible_user,
+        scheduledDate: data.schedule_date,
+        status: data.status,
+        products: data.items || []
+      })
+
+      if (data.items && data.items.length > 0) {
+        setProducts(data.items.map((item, index) => ({
+          id: index + 1,
+          name: item.product_name,
+          quantity: item.quantity_received || '',
+          expectedQuantity: item.quantity_expected,
+          unitCost: item.unit_cost_at_receipt || '',
+          productId: item.product_id,
+          sku: item.sku_code
+        })))
+      } else {
+        setProducts([{ id: 1, name: '', quantity: '', expectedQuantity: '', unitCost: '' }])
+      }
+
+      setError('')
+    } catch (err) {
+      console.error('Error fetching receipt details:', err)
+      setError('Failed to load receipt details. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (field, value) => {
     setReceipt(prev => ({

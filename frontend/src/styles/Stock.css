@@ -129,6 +129,29 @@
   background-color: #f9fafb;
 }
 
+.low-stock {
+  color: #ef4444;
+  font-weight: 600;
+  position: relative;
+}
+
+.low-stock::after {
+  content: ' ⚠️';
+  font-size: 12px;
+}
+
+.error-message {
+  margin: 16px 24px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  background-color: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .edit-input {
   width: 100%;
   padding: 8px 10px;

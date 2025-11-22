@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, sequelize } from '../db.js';
+import { QueryTypes } from 'sequelize';
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.get('/', async (req, res) => {
       JOIN warehouses tw ON tl.warehouse_id = tw.warehouse_id
       JOIN users u ON it.responsible_user_id = u.user_id
       ORDER BY it.created_at DESC
-    `, { type: sequelize.QueryTypes.SELECT });
+    `, { type: QueryTypes.SELECT });
     res.json(transfers);
   } catch (error) {
     console.error('Error fetching transfers:', error);

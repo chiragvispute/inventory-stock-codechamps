@@ -1,38 +1,101 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import '../styles/DeliveryDetail.css'
 import ContactDetail from '../components/ContactDetail'
 
 export default function DeliveryDetail({ onBack, deliveryId = null }) {
   const [delivery, setDelivery] = useState({
-    id: deliveryId || 'WH/OUT/0001',
-    deliverTo: 'Harshal Bhave',
+    id: '',
+    deliverTo: '',
     responsible: '',
     scheduledDate: '',
-    status: 'draft', // draft, ready, done
-    products: [{ id: 1, name: '', quantity: '' }]
+    status: 'draft',
+    products: []
   })
 
-  const [products, setProducts] = useState([
-    { id: 1, name: '', quantity: '' }
-  ])
-
+  const [products, setProducts] = useState([])
   const [selectedContact, setSelectedContact] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const [contactData, setContactData] = useState({
-    name: delivery.deliverTo,
-    email: 'harshal@gmail.com',
-    phone: '+91 9876543210',
-    company: 'ABC Company',
-    jobPosition: 'Sales Director',
-    gstin: 'BE0477472701',
-    street: '123 Business Street',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    zip: '400001',
-    country: 'India',
-    website: 'https://www.example.com',
-    tags: 'B2B, VIP, Consulting'
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    jobPosition: '',
+    gstin: '',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: '',
+    website: '',
+    tags: ''
   })
+
+  useEffect(() => {
+    if (deliveryId) {
+      fetchDeliveryDetail()
+    } else {
+      // Initialize new delivery
+      setDelivery({
+        id: 'WH/OUT/NEW',
+        deliverTo: '',
+        responsible: '',
+        scheduledDate: new Date().toISOString().split('T')[0],
+        status: 'draft',
+        products: []
+      })
+      setProducts([{ id: 1, name: '', quantity: '', orderedQuantity: '' }])
+    }
+  }, [deliveryId])
+
+  const fetchDeliveryDetail = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5001/api/deliveries/${deliveryId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch delivery details')
+      }
+
+      const data = await response.json()
+      setDelivery({
+        id: data.reference,
+        deliverTo: data.customer_name || data.to_location || 'Unknown Customer',
+        responsible: data.responsible_user,
+        scheduledDate: data.schedule_date,
+        status: data.status,
+        products: data.items || []
+      })
+
+      if (data.items && data.items.length > 0) {
+        setProducts(data.items.map((item, index) => ({
+          id: index + 1,
+          name: item.product_name,
+          quantity: item.quantity_delivered || '',
+          orderedQuantity: item.quantity_ordered,
+          productId: item.product_id,
+          sku: item.sku_code
+        })))
+      } else {
+        setProducts([{ id: 1, name: '', quantity: '', orderedQuantity: '' }])
+      }
+
+      setError('')
+    } catch (err) {
+      console.error('Error fetching delivery details:', err)
+      setError('Failed to load delivery details. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (field, value) => {
     setDelivery(prev => ({

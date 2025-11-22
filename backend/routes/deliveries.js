@@ -33,6 +33,10 @@ router.get('/:id', async (req, res) => {
   try {
     const deliveryOrderId = parseInt(req.params.id);
     
+    if (isNaN(deliveryOrderId)) {
+      return res.status(400).json({ error: 'Invalid delivery order ID' });
+    }
+    
     // Get delivery order header
     const orderQuery = `
       SELECT do.delivery_order_id, do.reference, do.schedule_date, 
@@ -155,6 +159,10 @@ router.post('/', async (req, res) => {
 router.patch('/:id/status', async (req, res) => {
   try {
     const deliveryOrderId = parseInt(req.params.id);
+    
+    if (isNaN(deliveryOrderId)) {
+      return res.status(400).json({ error: 'Invalid delivery order ID' });
+    }
     const { status } = req.body;
     
     if (!status) {
@@ -186,6 +194,10 @@ router.patch('/:id/status', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const deliveryOrderId = parseInt(req.params.id);
+    
+    if (isNaN(deliveryOrderId)) {
+      return res.status(400).json({ error: 'Invalid delivery order ID' });
+    }
     
     const query = `
       DELETE FROM delivery_orders 

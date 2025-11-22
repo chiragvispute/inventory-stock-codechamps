@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, sequelize } from '../db.js';
+import { QueryTypes } from 'sequelize';
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN locations l ON r.to_location_id = l.location_id
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
       ORDER BY r.created_at DESC
-    `, { type: sequelize.QueryTypes.SELECT });
+    `, { type: QueryTypes.SELECT });
     res.json(receipts);
   } catch (error) {
     console.error('Error fetching receipts:', error);
@@ -30,6 +31,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const receiptId = parseInt(req.params.id);
+    console.log('Receipt ID received:', req.params.id, 'Parsed:', receiptId);
+    
+    if (isNaN(receiptId)) {
+      return res.status(400).json({ error: 'Invalid receipt ID' });
+    }
     
     // Get receipt header
     const receiptQuery = `
@@ -43,10 +49,17 @@ router.get('/:id', async (req, res) => {
       LEFT JOIN users u ON r.responsible_user_id = u.user_id
       LEFT JOIN locations l ON r.to_location_id = l.location_id
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
-      WHERE r.receipt_id = $1
+      WHERE r.receipt_id = :receiptId
     `;
     
-    const receiptResult = await sequelize.query(receiptQuery, { replacements: [receiptId], type: QueryTypes.SELECT });
+    console.log('About to execute query with receiptId:', receiptId);
+    
+    const receiptResult = await sequelize.query(receiptQuery, { 
+      replacements: { receiptId: receiptId }, 
+      type: QueryTypes.SELECT 
+    });
+    
+    console.log('Query executed successfully, result length:', receiptResult.length);
     
     if (receiptResult.length === 0) {
       return res.status(404).json({ error: 'Receipt not found' });
@@ -61,11 +74,14 @@ router.get('/:id', async (req, res) => {
              p.product_id, p.name as product_name, p.sku_code, p.unit_of_measure
       FROM receipt_items ri
       JOIN products p ON ri.product_id = p.product_id
-      WHERE ri.receipt_id = $1
+      WHERE ri.receipt_id = :receiptId
       ORDER BY p.name
     `;
     
-    const itemsResult = await sequelize.query(itemsQuery, { replacements: [receiptId], type: QueryTypes.SELECT });
+    const itemsResult = await sequelize.query(itemsQuery, { 
+      replacements: { receiptId: receiptId }, 
+      type: QueryTypes.SELECT 
+    });
     receipt.items = itemsResult;
     
     res.json(receipt);
@@ -104,14 +120,23 @@ router.post('/', async (req, res) => {
     const receiptQuery = `
       INSERT INTO receipts (reference, schedule_date, operation_type, supplier_id, 
                            responsible_user_id, from_location, to_location_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES (:reference, :scheduleDate, :operationType, :supplierId, 
+              :responsibleUserId, :fromLocation, :toLocationId)
       RETURNING receipt_id, reference, created_at
     `;
     
-    const receiptResult = await client.query(receiptQuery, [
-      reference, scheduleDate, operationType || 'purchase', supplierId,
-      responsibleUserId, fromLocation, toLocationId
-    ]);
+    const receiptResult = await sequelize.query(receiptQuery, {
+      replacements: {
+        reference, 
+        scheduleDate, 
+        operationType: operationType || 'purchase', 
+        supplierId,
+        responsibleUserId, 
+        fromLocation, 
+        toLocationId
+      },
+      type: QueryTypes.SELECT
+    });
     
     const newReceipt = receiptResult[0];
     
@@ -121,16 +146,19 @@ router.post('/', async (req, res) => {
         const itemQuery = `
           INSERT INTO receipt_items (receipt_id, product_id, quantity_expected, 
                                    quantity_received, unit_cost_at_receipt)
-          VALUES ($1, $2, $3, $4, $5)
+          VALUES (:receiptId, :productId, :quantityExpected, :quantityReceived, :unitCost)
         `;
         
-        await client.query(itemQuery, [
-          newReceipt.receipt_id,
-          item.productId,
-          item.quantityExpected,
-          item.quantityReceived || 0,
-          item.unitCost || 0
-        ]);
+        await sequelize.query(itemQuery, {
+          replacements: {
+            receiptId: newReceipt.receipt_id,
+            productId: item.productId,
+            quantityExpected: item.quantityExpected || 0,
+            quantityReceived: item.quantityReceived || 0,
+            unitCost: item.unitCost || 0
+          },
+          type: QueryTypes.INSERT
+        });
       }
     }
     
@@ -156,6 +184,11 @@ router.post('/', async (req, res) => {
 router.patch('/:id/status', async (req, res) => {
   try {
     const receiptId = parseInt(req.params.id);
+    
+    if (isNaN(receiptId)) {
+      return res.status(400).json({ error: 'Invalid receipt ID' });
+    }
+    
     const { status } = req.body;
     
     if (!status) {
@@ -164,15 +197,15 @@ router.patch('/:id/status', async (req, res) => {
     
     const query = `
       UPDATE receipts 
-      SET status = $1, 
-          validated_at = CASE WHEN $1 = 'validated' THEN CURRENT_TIMESTAMP ELSE validated_at END
-      WHERE receipt_id = $2
+      SET status = :status, 
+          validated_at = CASE WHEN :status = 'validated' THEN CURRENT_TIMESTAMP ELSE validated_at END
+      WHERE receipt_id = :receiptId
       RETURNING receipt_id, reference, status, validated_at
     `;
     
-    const result = await sequelize.query(query, { replacements: [status, receiptId], type: QueryTypes.SELECT });
+    const result = await sequelize.query(query, { replacements: { status, receiptId }, type: QueryTypes.SELECT });
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Receipt not found' });
     }
     
@@ -188,13 +221,17 @@ router.delete('/:id', async (req, res) => {
   try {
     const receiptId = parseInt(req.params.id);
     
+    if (isNaN(receiptId)) {
+      return res.status(400).json({ error: 'Invalid receipt ID' });
+    }
+    
     const query = `
       DELETE FROM receipts 
-      WHERE receipt_id = $1 
+      WHERE receipt_id = :receiptId 
       RETURNING receipt_id, reference
     `;
     
-    const result = await sequelize.query(query, { replacements: [receiptId], type: QueryTypes.SELECT });
+    const result = await sequelize.query(query, { replacements: { receiptId }, type: QueryTypes.SELECT });
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Receipt not found' });

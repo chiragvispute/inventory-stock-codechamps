@@ -1,13 +1,25 @@
 import express from 'express';
 import { ProductModel } from '../models/Product.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all products
+// Apply authentication middleware to all routes
+router.use(authenticateToken);
+
+// Get all products (with optional search)
 router.get('/', async (req, res) => {
   try {
-    const products = await ProductModel.getAllProducts();
-    res.json(products);
+    const { search, category } = req.query;
+    
+    if (search) {
+      const categoryId = category ? parseInt(category) : null;
+      const products = await ProductModel.searchProducts(search, categoryId);
+      res.json(products);
+    } else {
+      const products = await ProductModel.getAllProducts();
+      res.json(products);
+    }
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ error: 'Failed to fetch products' });

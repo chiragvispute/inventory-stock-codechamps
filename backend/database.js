@@ -35,6 +35,10 @@ export async function initializeDatabase() {
       console.log('📊 Inserting sample data...');
       await client.query(sampleDataSQL);
       console.log('✅ Sample data inserted successfully');
+      
+      // Update user passwords with proper hashes
+      console.log('🔑 Updating user passwords...');
+      await updateSamplePasswords(client);
     } else {
       console.log('ℹ️  Sample data already exists, skipping...');
     }
@@ -46,6 +50,72 @@ export async function initializeDatabase() {
     throw error;
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Update sample user passwords with proper bcrypt hashes
+ */
+async function updateSamplePasswords(client) {
+  // Import bcrypt dynamically to avoid import issues
+  const bcrypt = (await import('bcryptjs')).default;
+  
+  const userUpdates = [
+    { loginId: 'admin', password: 'admin123' },
+    { loginId: 'manager1', password: 'manager123' },
+    { loginId: 'operator1', password: 'operator123' }
+  ];
+  
+  for (const user of userUpdates) {
+    try {
+      const hashedPassword = await bcrypt.hash(user.password, 12);
+      await client.query(
+        'UPDATE users SET password = $1 WHERE login_id = $2',
+        [hashedPassword, user.loginId]
+      );
+      console.log(`✅ Updated password for: ${user.loginId}`);
+    } catch (err) {
+      console.error(`❌ Failed to update password for ${user.loginId}:`, err.message);
+    }
+  }
+  
+  // Add our test users if they don't exist
+  const testUsers = [
+    {
+      loginId: 'testuser',
+      email: 'test@example.com',
+      password: 'testpass',
+      firstName: 'Test',
+      lastName: 'User',
+      role: 'admin'
+    },
+    {
+      loginId: 'manager',
+      email: 'manager@example.com',
+      password: 'manager123',
+      firstName: 'Manager',
+      lastName: 'User',
+      role: 'manager'
+    }
+  ];
+  
+  for (const user of testUsers) {
+    try {
+      // Check if user exists
+      const existing = await client.query('SELECT user_id FROM users WHERE login_id = $1', [user.loginId]);
+      
+      if (existing.rows.length === 0) {
+        // Create user
+        const hashedPassword = await bcrypt.hash(user.password, 12);
+        await client.query(`
+          INSERT INTO users (login_id, email, password, user_role, first_name, last_name)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [user.loginId, user.email, hashedPassword, user.role, user.firstName, user.lastName]);
+        console.log(`✅ Created test user: ${user.loginId}`);
+      }
+    } catch (err) {
+      console.error(`❌ Failed to create test user ${user.loginId}:`, err.message);
+    }
   }
 }
 
