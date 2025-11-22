@@ -126,8 +126,8 @@ export default function Dashboard() {
               />
               Auto-refresh
             </label>
-            <button 
-              className="btn-refresh" 
+            <button
+              className="btn-refresh"
               onClick={fetchDashboardData}
               disabled={loading}
               title="Refresh data manually"
@@ -335,7 +335,6 @@ export default function Dashboard() {
           <DeliveryList onBack={() => setCurrentPage('dashboard')} />
         </>
       )}
-      
       <Footer />
     </div>
   )
