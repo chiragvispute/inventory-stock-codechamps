@@ -6,6 +6,7 @@ import DeliveryList from './DeliveryList'
 import Stock from './Stock'
 import MoveHistory from './MoveHistory'
 import Footer from '../components/Footer'
+import Chatbot from '../components/Chatbot'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [lastUpdate, setLastUpdate] = useState(Date.now())
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [chatbotOpen, setChatbotOpen] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -27,13 +29,11 @@ export default function Dashboard() {
   // Auto-refresh data every 30 seconds if enabled
   useEffect(() => {
     if (!autoRefresh) return
-    
     const interval = setInterval(() => {
       if (!loading) {
         fetchDashboardData()
       }
     }, 30000) // Refresh every 30 seconds for dashboard
-    
     return () => clearInterval(interval)
   }, [autoRefresh, loading])
 
@@ -391,7 +391,30 @@ export default function Dashboard() {
           <DeliveryList onBack={() => setCurrentPage('dashboard')} />
         </>
       )}
+
       <Footer />
+
+      {/* Floating Chatbot Widget */}
+      {chatbotOpen && (
+        <div className="chatbot-widget">
+          <Chatbot />
+          <button 
+            className="chatbot-close"
+            onClick={() => setChatbotOpen(false)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      {!chatbotOpen && (
+        <button
+          className="chatbot-toggle"
+          onClick={() => setChatbotOpen(true)}
+          title="Open AI Assistant"
+        >
+          💬
+        </button>
+      )}
     </div>
   )
 }
