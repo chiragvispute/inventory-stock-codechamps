@@ -77,7 +77,7 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem('token')
-    navigate('/login')
+    navigate('/')
   }
 
   const tabs = [
@@ -88,6 +88,16 @@ export default function Dashboard() {
     { id: 'settings', label: 'Settings' },
   ]
 
+  // Helper function to calculate bar width percentage
+  const getBarWidth = (value, maxValue) => {
+    if (maxValue === 0) return 0;
+    return Math.min((value / maxValue) * 100, 100);
+  };
+
+  // Calculate max values for bar scaling
+  const maxReceiptValue = Math.max(dashboardData.receipts.late, dashboardData.receipts.operations, 1);
+  const maxDeliveryValue = Math.max(dashboardData.deliveries.waiting, dashboardData.deliveries.operations, 1);
+
   return (
     <div className="dashboard">
       {/* New Main Navbar */}
@@ -96,7 +106,21 @@ export default function Dashboard() {
           {/* Logo Section */}
           <div className="navbar-brand">
             <div className="logo-placeholder">
-              <img src="/assests/logo.jpg" alt="StockShelf Logo" style={{width: '32px', height: '32px'}} />
+              <img 
+                src="/logo.jpg" 
+                alt="StockShelf Logo" 
+                style={{width: '32px', height: '32px', borderRadius: '4px'}}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+              <span 
+                className="logo-text"
+                style={{display: 'none'}}
+              >
+                SS
+              </span>
             </div>
             <h1 className="brand-title">
               <span className="brand-stock">Stock</span>Shelf
@@ -221,13 +245,29 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div className="stats">
-                      <div className="stat">
+                      <div className="stat stat-with-bar">
                         <span className="stat-number">{dashboardData.receipts.late}</span>
                         <span className="stat-label">Late</span>
+                        <div className="stat-bar">
+                          <div 
+                            className="stat-bar-fill late-bar" 
+                            style={{ 
+                              width: `${getBarWidth(dashboardData.receipts.late, maxReceiptValue)}%` 
+                            }}
+                          ></div>
+                        </div>
                       </div>
-                      <div className="stat">
+                      <div className="stat stat-with-bar">
                         <span className="stat-number">{dashboardData.receipts.operations}</span>
                         <span className="stat-label">operations</span>
+                        <div className="stat-bar">
+                          <div 
+                            className="stat-bar-fill operations-bar" 
+                            style={{ 
+                              width: `${getBarWidth(dashboardData.receipts.operations, maxReceiptValue)}%` 
+                            }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -267,13 +307,29 @@ export default function Dashboard() {
                       </span>
                     </div>
                     <div className="stats">
-                      <div className="stat">
+                      <div className="stat stat-with-bar">
                         <span className="stat-number">{dashboardData.deliveries.waiting}</span>
                         <span className="stat-label">waiting</span>
+                        <div className="stat-bar">
+                          <div 
+                            className="stat-bar-fill waiting-bar" 
+                            style={{ 
+                              width: `${getBarWidth(dashboardData.deliveries.waiting, maxDeliveryValue)}%` 
+                            }}
+                          ></div>
+                        </div>
                       </div>
-                      <div className="stat">
+                      <div className="stat stat-with-bar">
                         <span className="stat-number">{dashboardData.deliveries.operations}</span>
                         <span className="stat-label">operations</span>
+                        <div className="stat-bar">
+                          <div 
+                            className="stat-bar-fill operations-bar" 
+                            style={{ 
+                              width: `${getBarWidth(dashboardData.deliveries.operations, maxDeliveryValue)}%` 
+                            }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </div>
