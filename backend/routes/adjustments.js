@@ -1,5 +1,6 @@
 import express from 'express';
-import { pool } from '../db.js';
+import { pool, sequelize } from '../db.js';
+import { QueryTypes } from 'sequelize';
 
 const router = express.Router();
 
@@ -19,8 +20,8 @@ router.get('/', async (req, res) => {
       JOIN users u ON sa.responsible_user_id = u.user_id
       ORDER BY sa.created_at DESC
     `;
-    const result = await pool.query(query);
-    res.json(result.rows);
+    const result = await sequelize.query(query, { type: QueryTypes.SELECT });
+    res.json(result);
   } catch (error) {
     console.error('Error fetching adjustments:', error);
     res.status(500).json({ error: 'Failed to fetch adjustments' });
@@ -46,13 +47,13 @@ router.get('/:id', async (req, res) => {
       WHERE sa.adjustment_id = $1
     `;
     
-    const result = await pool.query(query, [adjustmentId]);
+    const result = await sequelize.query(query, { replacements: [adjustmentId], type: QueryTypes.SELECT });
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Adjustment not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(result[0]);
   } catch (error) {
     console.error('Error fetching adjustment:', error);
     res.status(500).json({ error: 'Failed to fetch adjustment' });
@@ -160,13 +161,13 @@ router.delete('/:id', async (req, res) => {
       RETURNING adjustment_id, reason
     `;
     
-    const result = await pool.query(query, [adjustmentId]);
+    const result = await sequelize.query(query, { replacements: [adjustmentId], type: QueryTypes.SELECT });
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Adjustment not found' });
     }
     
-    res.json({ message: 'Adjustment deleted successfully', adjustment: result.rows[0] });
+    res.json({ message: 'Adjustment deleted successfully', adjustment: result[0] });
   } catch (error) {
     console.error('Error deleting adjustment:', error);
     res.status(500).json({ error: 'Failed to delete adjustment' });

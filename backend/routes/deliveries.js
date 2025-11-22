@@ -1,5 +1,6 @@
 import express from 'express';
-import { pool } from '../db.js';
+import { pool, sequelize } from '../db.js';
+import { QueryTypes } from 'sequelize';
 
 const router = express.Router();
 
@@ -19,8 +20,8 @@ router.get('/', async (req, res) => {
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
       ORDER BY do.created_at DESC
     `;
-    const result = await pool.query(query);
-    res.json(result.rows);
+    const result = await sequelize.query(query, { type: QueryTypes.SELECT });
+    res.json(result);
   } catch (error) {
     console.error('Error fetching delivery orders:', error);
     res.status(500).json({ error: 'Failed to fetch delivery orders' });
@@ -47,13 +48,13 @@ router.get('/:id', async (req, res) => {
       WHERE do.delivery_order_id = $1
     `;
     
-    const orderResult = await pool.query(orderQuery, [deliveryOrderId]);
+    const orderResult = await sequelize.query(orderQuery, { replacements: [deliveryOrderId], type: QueryTypes.SELECT });
     
-    if (orderResult.rows.length === 0) {
+    if (orderResult.length === 0) {
       return res.status(404).json({ error: 'Delivery order not found' });
     }
     
-    const deliveryOrder = orderResult.rows[0];
+    const deliveryOrder = orderResult[0];
     
     // Get delivery order items
     const itemsQuery = `
@@ -65,8 +66,8 @@ router.get('/:id', async (req, res) => {
       ORDER BY p.name
     `;
     
-    const itemsResult = await pool.query(itemsQuery, [deliveryOrderId]);
-    deliveryOrder.items = itemsResult.rows;
+    const itemsResult = await sequelize.query(itemsQuery, { replacements: [deliveryOrderId], type: QueryTypes.SELECT });
+    deliveryOrder.items = itemsResult;
     
     res.json(deliveryOrder);
   } catch (error) {
@@ -113,7 +114,7 @@ router.post('/', async (req, res) => {
       responsibleUserId, fromLocationId, toLocation
     ]);
     
-    const newOrder = orderResult.rows[0];
+    const newOrder = orderResult[0];
     
     // Create delivery order items if provided
     if (items && items.length > 0) {
@@ -168,13 +169,13 @@ router.patch('/:id/status', async (req, res) => {
       RETURNING delivery_order_id, reference, status, validated_at
     `;
     
-    const result = await pool.query(query, [status, deliveryOrderId]);
+    const result = await sequelize.query(query, { replacements: [status, deliveryOrderId], type: QueryTypes.SELECT });
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Delivery order not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(result[0]);
   } catch (error) {
     console.error('Error updating delivery order status:', error);
     res.status(500).json({ error: 'Failed to update delivery order status' });
@@ -192,13 +193,13 @@ router.delete('/:id', async (req, res) => {
       RETURNING delivery_order_id, reference
     `;
     
-    const result = await pool.query(query, [deliveryOrderId]);
+    const result = await sequelize.query(query, { replacements: [deliveryOrderId], type: QueryTypes.SELECT });
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Delivery order not found' });
     }
     
-    res.json({ message: 'Delivery order deleted successfully', deliveryOrder: result.rows[0] });
+    res.json({ message: 'Delivery order deleted successfully', deliveryOrder: result[0] });
   } catch (error) {
     console.error('Error deleting delivery order:', error);
     res.status(500).json({ error: 'Failed to delete delivery order' });

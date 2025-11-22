@@ -1,5 +1,5 @@
 import express from 'express';
-import { pool } from '../db.js';
+import { pool, sequelize } from '../db.js';
 
 const router = express.Router();
 
@@ -8,8 +8,8 @@ router.get('/', async (req, res) => {
   try {
     // Get total products
     const productsQuery = 'SELECT COUNT(*) as total FROM products';
-    const productsResult = await pool.query(productsQuery);
-    const totalProducts = parseInt(productsResult.rows[0].total);
+    const productsResult = await sequelize.query(productsQuery, { type: QueryTypes.SELECT });
+    const totalProducts = parseInt(productsResult[0].total);
 
     // Get low stock alerts
     const lowStockQuery = `
@@ -17,52 +17,49 @@ router.get('/', async (req, res) => {
       FROM stock_levels 
       WHERE quantity_on_hand <= min_stock_level AND min_stock_level > 0
     `;
-    const lowStockResult = await pool.query(lowStockQuery);
-    const lowStockAlerts = parseInt(lowStockResult.rows[0].total);
+    const lowStockResult = await sequelize.query(lowStockQuery, { type: QueryTypes.SELECT });
+    const lowStockAlerts = parseInt(lowStockResult[0].total);
 
     // Get out of stock items
-    const outOfStockQuery = `
+    const outOfStockResult = await sequelize.query(`
       SELECT COUNT(*) as total 
       FROM stock_levels 
       WHERE quantity_on_hand = 0
-    `;
-    const outOfStockResult = await pool.query(outOfStockQuery);
-    const outOfStock = parseInt(outOfStockResult.rows[0].total);
+    `, { type: sequelize.QueryTypes.SELECT });
+    const outOfStock = parseInt(outOfStockResult[0].total);
 
     // Get pending receipts
-    const receiptsQuery = `
+    const receipts = await sequelize.query(`
       SELECT 
         COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as to_receive,
         COUNT(CASE WHEN status = 'confirmed' AND schedule_date < CURRENT_DATE THEN 1 END) as late,
         COUNT(*) as operations
       FROM receipts
       WHERE status IN ('draft', 'confirmed')
-    `;
-    const receiptsResult = await pool.query(receiptsQuery);
-    const receipts = receiptsResult.rows[0];
+    `, { type: sequelize.QueryTypes.SELECT });
+    const receiptsData = receipts[0];
 
     // Get pending deliveries
-    const deliveriesQuery = `
+    const deliveries = await sequelize.query(`
       SELECT 
         COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as to_deliver,
         COUNT(CASE WHEN status = 'draft' THEN 1 END) as waiting,
         COUNT(*) as operations
       FROM delivery_orders
       WHERE status IN ('draft', 'confirmed')
-    `;
-    const deliveriesResult = await pool.query(deliveriesQuery);
-    const deliveries = deliveriesResult.rows[0];
+    `, { type: sequelize.QueryTypes.SELECT });
+    const deliveriesData = deliveries[0];
 
     res.json({
       receipts: {
-        toReceive: parseInt(receipts.to_receive || 0),
-        late: parseInt(receipts.late || 0),
-        operations: parseInt(receipts.operations || 0)
+        toReceive: parseInt(receiptsData.to_receive || 0),
+        late: parseInt(receiptsData.late || 0),
+        operations: parseInt(receiptsData.operations || 0)
       },
       deliveries: {
-        toDeliver: parseInt(deliveries.to_deliver || 0),
-        waiting: parseInt(deliveries.waiting || 0),
-        operations: parseInt(deliveries.operations || 0)
+        toDeliver: parseInt(deliveriesData.to_deliver || 0),
+        waiting: parseInt(deliveriesData.waiting || 0),
+        operations: parseInt(deliveriesData.operations || 0)
       },
       stock: {
         totalItems: totalProducts,
@@ -81,8 +78,8 @@ router.get('/overview', async (req, res) => {
   try {
     // Get total products
     const productsQuery = 'SELECT COUNT(*) as total FROM products';
-    const productsResult = await pool.query(productsQuery);
-    const totalProducts = parseInt(productsResult.rows[0].total);
+    const productsResult = await sequelize.query(productsQuery, { type: QueryTypes.SELECT });
+    const totalProducts = parseInt(productsResult[0].total);
 
     // Get low stock alerts
     const lowStockQuery = `
@@ -90,25 +87,26 @@ router.get('/overview', async (req, res) => {
       FROM stock_levels 
       WHERE quantity_on_hand <= min_stock_level AND min_stock_level > 0
     `;
-    const lowStockResult = await pool.query(lowStockQuery);
-    const lowStockAlerts = parseInt(lowStockResult.rows[0].total);
+    const lowStockResult = await sequelize.query(lowStockQuery, { type: QueryTypes.SELECT });
+    const lowStockAlerts = parseInt(lowStockResult[0].total);
 
     // Calculate total inventory value
-    const valueQuery = `
+    const valueResult = await sequelize.query(`
       SELECT COALESCE(SUM(sl.quantity_on_hand * p.per_unit_cost), 0) as total_value
       FROM stock_levels sl
       JOIN products p ON sl.product_id = p.product_id
-    `;
-    const valueResult = await pool.query(valueQuery);
-    const totalValue = parseFloat(valueResult.rows[0].total_value || 0);
+    `, { type: sequelize.QueryTypes.SELECT });
+    const totalValue = parseFloat(valueResult[0].total_value || 0);
 
     // Get total locations
-    const locationsQuery = 'SELECT COUNT(*) as total FROM locations';
-    const locationsResult = await pool.query(locationsQuery);
-    const totalLocations = parseInt(locationsResult.rows[0].total);
+    const locationsResult = await sequelize.query(
+      'SELECT COUNT(*) as total FROM locations',
+      { type: sequelize.QueryTypes.SELECT }
+    );
+    const totalLocations = parseInt(locationsResult[0].total);
 
     // Get recent movements
-    const movementsQuery = `
+    const recentMovements = await sequelize.query(`
       SELECT mh.transaction_ref, mh.transaction_type, mh.quantity_change,
              mh.move_timestamp, p.name as product_name, p.sku_code,
              tl.name as location_name, u.first_name || ' ' || u.last_name as user_name
@@ -118,15 +116,14 @@ router.get('/overview', async (req, res) => {
       JOIN users u ON mh.responsible_user_id = u.user_id
       ORDER BY mh.move_timestamp DESC
       LIMIT 10
-    `;
-    const movementsResult = await pool.query(movementsQuery);
+    `, { type: sequelize.QueryTypes.SELECT });
 
     res.json({
       totalProducts,
       lowStockAlerts,
       totalValue: totalValue.toFixed(2),
       totalLocations,
-      recentMovements: movementsResult.rows
+      recentMovements: recentMovements
     });
   } catch (error) {
     console.error('Error fetching dashboard overview:', error);
@@ -137,7 +134,7 @@ router.get('/overview', async (req, res) => {
 // Get stock summary by warehouse
 router.get('/stock-summary', async (req, res) => {
   try {
-    const query = `
+    const stockSummary = await sequelize.query(`
       SELECT w.warehouse_id, w.name as warehouse_name, w.short_code,
              COUNT(DISTINCT sl.product_id) as unique_products,
              COUNT(*) as total_stock_entries,
@@ -150,9 +147,8 @@ router.get('/stock-summary', async (req, res) => {
       LEFT JOIN products p ON sl.product_id = p.product_id
       GROUP BY w.warehouse_id, w.name, w.short_code
       ORDER BY w.name
-    `;
-    const result = await pool.query(query);
-    res.json(result.rows);
+    `, { type: sequelize.QueryTypes.SELECT });
+    res.json(stockSummary);
   } catch (error) {
     console.error('Error fetching stock summary:', error);
     res.status(500).json({ error: 'Failed to fetch stock summary' });

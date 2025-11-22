@@ -1,4 +1,28 @@
-import { pool } from '../db.js';
+import { DataTypes } from 'sequelize';
+import { sequelize } from '../db.js';
+
+// Define ProductCategory model with Sequelize
+const ProductCategory = sequelize.define('ProductCategory', {
+  category_id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+}, {
+  tableName: 'product_categories',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+});
 
 /**
  * Product Category model for handling category operations
@@ -9,7 +33,7 @@ export class ProductCategoryModel {
    * Get all product categories with product count
    */
   static async getAllCategories() {
-    const query = `
+    const categories = await sequelize.query(`
       SELECT pc.category_id, pc.name, pc.description, 
              pc.created_at, pc.updated_at,
              COUNT(p.product_id) as product_count
@@ -17,39 +41,42 @@ export class ProductCategoryModel {
       LEFT JOIN products p ON pc.category_id = p.category_id
       GROUP BY pc.category_id, pc.name, pc.description, pc.created_at, pc.updated_at
       ORDER BY pc.name
-    `;
-    const result = await pool.query(query);
-    return result.rows;
+    `, { type: sequelize.QueryTypes.SELECT });
+    return categories;
   }
 
   /**
    * Get category by ID with products
    */
   static async getCategoryById(categoryId) {
-    const query = `
+    const category = await sequelize.query(`
       SELECT category_id, name, description, created_at, updated_at
       FROM product_categories
       WHERE category_id = $1
-    `;
-    const result = await pool.query(query, [categoryId]);
+    `, { 
+      replacements: [categoryId], 
+      type: sequelize.QueryTypes.SELECT 
+    });
     
-    if (result.rows.length === 0) {
+    if (category.length === 0) {
       return null;
     }
     
-    const category = result.rows[0];
+    const categoryData = category[0];
     
     // Get products in this category
-    const productsQuery = `
+    const products = await sequelize.query(`
       SELECT product_id, name, sku_code, unit_of_measure, per_unit_cost, initial_stock
       FROM products 
       WHERE category_id = $1
       ORDER BY name
-    `;
-    const productsResult = await pool.query(productsQuery, [categoryId]);
-    category.products = productsResult.rows;
+    `, { 
+      replacements: [categoryId], 
+      type: sequelize.QueryTypes.SELECT 
+    });
+    categoryData.products = products;
     
-    return category;
+    return categoryData;
   }
 
   /**
@@ -58,57 +85,87 @@ export class ProductCategoryModel {
   static async createCategory(categoryData) {
     const { name, description } = categoryData;
     
-    const query = `
-      INSERT INTO product_categories (name, description)
-      VALUES ($1, $2)
-      RETURNING category_id, name, description, created_at
-    `;
+    const category = await ProductCategory.create({
+      name,
+      description
+    });
     
-    const result = await pool.query(query, [name, description]);
-    return result.rows[0];
+    return category.dataValues;
   }
 
   /**
    * Update category
    */
   static async updateCategory(categoryId, categoryData) {
-    const fields = [];
-    const values = [];
-    let paramCount = 1;
+    const updateFields = {};
+    
+    if (categoryData.name !== undefined) updateFields.name = categoryData.name;
+    if (categoryData.description !== undefined) updateFields.description = categoryData.description;
 
-    Object.keys(categoryData).forEach(key => {
-      if (categoryData[key] !== undefined) {
-        fields.push(`${key} = $${paramCount}`);
-        values.push(categoryData[key]);
-        paramCount++;
-      }
-    });
-
-    if (fields.length === 0) {
+    if (Object.keys(updateFields).length === 0) {
       throw new Error('No fields to update');
     }
 
-    const query = `
-      UPDATE product_categories 
-      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-      WHERE category_id = $${paramCount}
-      RETURNING category_id, name, description, updated_at
-    `;
-    
-    values.push(categoryId);
-    const result = await pool.query(query, values);
-    return result.rows[0];
+    const [affectedRows] = await ProductCategory.update(updateFields, {
+      where: { category_id: categoryId }
+    });
+
+    if (affectedRows === 0) {
+      return null;
+    }
+
+    // Return updated category
+    return await this.getCategoryById(categoryId);
   }
 
   /**
    * Delete category
    */
   static async deleteCategory(categoryId) {
-    const query = 'DELETE FROM product_categories WHERE category_id = $1 RETURNING *';
-    const result = await pool.query(query, [categoryId]);
-    return result.rows[0];
+    const category = await ProductCategory.findOne({ where: { category_id: categoryId } });
+    if (!category) return null;
+    
+    await ProductCategory.destroy({ where: { category_id: categoryId } });
+    return category.dataValues;
   }
 }
+
+// Define Supplier model with Sequelize
+const Supplier = sequelize.define('Supplier', {
+  supplier_id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  contact_person: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      isEmail: true,
+    },
+  },
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  address: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+}, {
+  tableName: 'suppliers',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+});
 
 /**
  * Supplier model for handling supplier operations
@@ -119,28 +176,18 @@ export class SupplierModel {
    * Get all suppliers
    */
   static async getAllSuppliers() {
-    const query = `
-      SELECT supplier_id, name, contact_person, email, phone, address, 
-             created_at, updated_at
-      FROM suppliers
-      ORDER BY name
-    `;
-    const result = await pool.query(query);
-    return result.rows;
+    const suppliers = await Supplier.findAll({
+      order: [['name', 'ASC']]
+    });
+    return suppliers.map(supplier => supplier.dataValues);
   }
 
   /**
    * Get supplier by ID
    */
   static async getSupplierById(supplierId) {
-    const query = `
-      SELECT supplier_id, name, contact_person, email, phone, address, 
-             created_at, updated_at
-      FROM suppliers
-      WHERE supplier_id = $1
-    `;
-    const result = await pool.query(query, [supplierId]);
-    return result.rows[0];
+    const supplier = await Supplier.findOne({ where: { supplier_id: supplierId } });
+    return supplier ? supplier.dataValues : null;
   }
 
   /**
@@ -149,58 +196,94 @@ export class SupplierModel {
   static async createSupplier(supplierData) {
     const { name, contactPerson, email, phone, address } = supplierData;
     
-    const query = `
-      INSERT INTO suppliers (name, contact_person, email, phone, address)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING supplier_id, name, contact_person, email, phone, address, created_at
-    `;
+    const supplier = await Supplier.create({
+      name,
+      contact_person: contactPerson,
+      email,
+      phone,
+      address
+    });
     
-    const result = await pool.query(query, [name, contactPerson, email, phone, address]);
-    return result.rows[0];
+    return supplier.dataValues;
   }
 
   /**
    * Update supplier
    */
   static async updateSupplier(supplierId, supplierData) {
-    const fields = [];
-    const values = [];
-    let paramCount = 1;
+    const updateFields = {};
+    
+    // Map camelCase to snake_case for database fields
+    if (supplierData.name !== undefined) updateFields.name = supplierData.name;
+    if (supplierData.contactPerson !== undefined) updateFields.contact_person = supplierData.contactPerson;
+    if (supplierData.email !== undefined) updateFields.email = supplierData.email;
+    if (supplierData.phone !== undefined) updateFields.phone = supplierData.phone;
+    if (supplierData.address !== undefined) updateFields.address = supplierData.address;
 
-    Object.keys(supplierData).forEach(key => {
-      if (supplierData[key] !== undefined) {
-        const dbField = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        fields.push(`${dbField} = $${paramCount}`);
-        values.push(supplierData[key]);
-        paramCount++;
-      }
-    });
-
-    if (fields.length === 0) {
+    if (Object.keys(updateFields).length === 0) {
       throw new Error('No fields to update');
     }
 
-    const query = `
-      UPDATE suppliers 
-      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-      WHERE supplier_id = $${paramCount}
-      RETURNING supplier_id, name, contact_person, email, phone, address, updated_at
-    `;
-    
-    values.push(supplierId);
-    const result = await pool.query(query, values);
-    return result.rows[0];
+    const [affectedRows] = await Supplier.update(updateFields, {
+      where: { supplier_id: supplierId }
+    });
+
+    if (affectedRows === 0) {
+      return null;
+    }
+
+    // Return updated supplier
+    return await this.getSupplierById(supplierId);
   }
 
   /**
    * Delete supplier
    */
   static async deleteSupplier(supplierId) {
-    const query = 'DELETE FROM suppliers WHERE supplier_id = $1 RETURNING *';
-    const result = await pool.query(query, [supplierId]);
-    return result.rows[0];
+    const supplier = await Supplier.findOne({ where: { supplier_id: supplierId } });
+    if (!supplier) return null;
+    
+    await Supplier.destroy({ where: { supplier_id: supplierId } });
+    return supplier.dataValues;
   }
 }
+
+// Define Customer model with Sequelize
+const Customer = sequelize.define('Customer', {
+  customer_id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  contact_person: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      isEmail: true,
+    },
+  },
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  address: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+}, {
+  tableName: 'customers',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+});
 
 /**
  * Customer model for handling customer operations
@@ -211,28 +294,18 @@ export class CustomerModel {
    * Get all customers
    */
   static async getAllCustomers() {
-    const query = `
-      SELECT customer_id, name, contact_person, email, phone, address, 
-             created_at, updated_at
-      FROM customers
-      ORDER BY name
-    `;
-    const result = await pool.query(query);
-    return result.rows;
+    const customers = await Customer.findAll({
+      order: [['name', 'ASC']]
+    });
+    return customers.map(customer => customer.dataValues);
   }
 
   /**
    * Get customer by ID
    */
   static async getCustomerById(customerId) {
-    const query = `
-      SELECT customer_id, name, contact_person, email, phone, address, 
-             created_at, updated_at
-      FROM customers
-      WHERE customer_id = $1
-    `;
-    const result = await pool.query(query, [customerId]);
-    return result.rows[0];
+    const customer = await Customer.findOne({ where: { customer_id: customerId } });
+    return customer ? customer.dataValues : null;
   }
 
   /**
@@ -241,55 +314,57 @@ export class CustomerModel {
   static async createCustomer(customerData) {
     const { name, contactPerson, email, phone, address } = customerData;
     
-    const query = `
-      INSERT INTO customers (name, contact_person, email, phone, address)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING customer_id, name, contact_person, email, phone, address, created_at
-    `;
+    const customer = await Customer.create({
+      name,
+      contact_person: contactPerson,
+      email,
+      phone,
+      address
+    });
     
-    const result = await pool.query(query, [name, contactPerson, email, phone, address]);
-    return result.rows[0];
+    return customer.dataValues;
   }
 
   /**
    * Update customer
    */
   static async updateCustomer(customerId, customerData) {
-    const fields = [];
-    const values = [];
-    let paramCount = 1;
+    const updateFields = {};
+    
+    // Map camelCase to snake_case for database fields
+    if (customerData.name !== undefined) updateFields.name = customerData.name;
+    if (customerData.contactPerson !== undefined) updateFields.contact_person = customerData.contactPerson;
+    if (customerData.email !== undefined) updateFields.email = customerData.email;
+    if (customerData.phone !== undefined) updateFields.phone = customerData.phone;
+    if (customerData.address !== undefined) updateFields.address = customerData.address;
 
-    Object.keys(customerData).forEach(key => {
-      if (customerData[key] !== undefined) {
-        const dbField = key.replace(/([A-Z])/g, '_$1').toLowerCase();
-        fields.push(`${dbField} = $${paramCount}`);
-        values.push(customerData[key]);
-        paramCount++;
-      }
-    });
-
-    if (fields.length === 0) {
+    if (Object.keys(updateFields).length === 0) {
       throw new Error('No fields to update');
     }
 
-    const query = `
-      UPDATE customers 
-      SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
-      WHERE customer_id = $${paramCount}
-      RETURNING customer_id, name, contact_person, email, phone, address, updated_at
-    `;
-    
-    values.push(customerId);
-    const result = await pool.query(query, values);
-    return result.rows[0];
+    const [affectedRows] = await Customer.update(updateFields, {
+      where: { customer_id: customerId }
+    });
+
+    if (affectedRows === 0) {
+      return null;
+    }
+
+    // Return updated customer
+    return await this.getCustomerById(customerId);
   }
 
   /**
    * Delete customer
    */
   static async deleteCustomer(customerId) {
-    const query = 'DELETE FROM customers WHERE customer_id = $1 RETURNING *';
-    const result = await pool.query(query, [customerId]);
-    return result.rows[0];
+    const customer = await Customer.findOne({ where: { customer_id: customerId } });
+    if (!customer) return null;
+    
+    await Customer.destroy({ where: { customer_id: customerId } });
+    return customer.dataValues;
   }
 }
+
+// Export the Sequelize models as well for direct use if needed
+export { ProductCategory, Supplier, Customer };

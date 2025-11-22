@@ -1,12 +1,12 @@
 import express from 'express';
-import { pool } from '../db.js';
+import { pool, sequelize } from '../db.js';
 
 const router = express.Router();
 
 // Get all receipts
 router.get('/', async (req, res) => {
   try {
-    const query = `
+    const receipts = await sequelize.query(`
       SELECT r.receipt_id, r.reference, r.schedule_date, r.operation_type, 
              r.status, r.from_location, r.created_at, r.validated_at,
              s.name as supplier_name,
@@ -18,9 +18,8 @@ router.get('/', async (req, res) => {
       LEFT JOIN locations l ON r.to_location_id = l.location_id
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
       ORDER BY r.created_at DESC
-    `;
-    const result = await pool.query(query);
-    res.json(result.rows);
+    `, { type: sequelize.QueryTypes.SELECT });
+    res.json(receipts);
   } catch (error) {
     console.error('Error fetching receipts:', error);
     res.status(500).json({ error: 'Failed to fetch receipts' });
@@ -47,13 +46,13 @@ router.get('/:id', async (req, res) => {
       WHERE r.receipt_id = $1
     `;
     
-    const receiptResult = await pool.query(receiptQuery, [receiptId]);
+    const receiptResult = await sequelize.query(receiptQuery, { replacements: [receiptId], type: QueryTypes.SELECT });
     
-    if (receiptResult.rows.length === 0) {
+    if (receiptResult.length === 0) {
       return res.status(404).json({ error: 'Receipt not found' });
     }
     
-    const receipt = receiptResult.rows[0];
+    const receipt = receiptResult[0];
     
     // Get receipt items
     const itemsQuery = `
@@ -66,8 +65,8 @@ router.get('/:id', async (req, res) => {
       ORDER BY p.name
     `;
     
-    const itemsResult = await pool.query(itemsQuery, [receiptId]);
-    receipt.items = itemsResult.rows;
+    const itemsResult = await sequelize.query(itemsQuery, { replacements: [receiptId], type: QueryTypes.SELECT });
+    receipt.items = itemsResult;
     
     res.json(receipt);
   } catch (error) {
@@ -114,7 +113,7 @@ router.post('/', async (req, res) => {
       responsibleUserId, fromLocation, toLocationId
     ]);
     
-    const newReceipt = receiptResult.rows[0];
+    const newReceipt = receiptResult[0];
     
     // Create receipt items if provided
     if (items && items.length > 0) {
@@ -171,13 +170,13 @@ router.patch('/:id/status', async (req, res) => {
       RETURNING receipt_id, reference, status, validated_at
     `;
     
-    const result = await pool.query(query, [status, receiptId]);
+    const result = await sequelize.query(query, { replacements: [status, receiptId], type: QueryTypes.SELECT });
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Receipt not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(result[0]);
   } catch (error) {
     console.error('Error updating receipt status:', error);
     res.status(500).json({ error: 'Failed to update receipt status' });
@@ -195,13 +194,13 @@ router.delete('/:id', async (req, res) => {
       RETURNING receipt_id, reference
     `;
     
-    const result = await pool.query(query, [receiptId]);
+    const result = await sequelize.query(query, { replacements: [receiptId], type: QueryTypes.SELECT });
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Receipt not found' });
     }
     
-    res.json({ message: 'Receipt deleted successfully', receipt: result.rows[0] });
+    res.json({ message: 'Receipt deleted successfully', receipt: result[0] });
   } catch (error) {
     console.error('Error deleting receipt:', error);
     res.status(500).json({ error: 'Failed to delete receipt' });

@@ -1,12 +1,12 @@
 import express from 'express';
-import { pool } from '../db.js';
+import { pool, sequelize } from '../db.js';
 
 const router = express.Router();
 
 // Get all internal transfers
 router.get('/', async (req, res) => {
   try {
-    const query = `
+    const transfers = await sequelize.query(`
       SELECT it.transfer_id, it.reference, it.quantity, it.status, 
              it.transfer_date, it.created_at,
              p.name as product_name, p.sku_code,
@@ -21,9 +21,8 @@ router.get('/', async (req, res) => {
       JOIN warehouses tw ON tl.warehouse_id = tw.warehouse_id
       JOIN users u ON it.responsible_user_id = u.user_id
       ORDER BY it.created_at DESC
-    `;
-    const result = await pool.query(query);
-    res.json(result.rows);
+    `, { type: sequelize.QueryTypes.SELECT });
+    res.json(transfers);
   } catch (error) {
     console.error('Error fetching transfers:', error);
     res.status(500).json({ error: 'Failed to fetch transfers' });
@@ -54,13 +53,13 @@ router.get('/:id', async (req, res) => {
       WHERE it.transfer_id = $1
     `;
     
-    const result = await pool.query(query, [transferId]);
+    const result = await sequelize.query(query, { replacements: [transferId], type: QueryTypes.SELECT });
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Transfer not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(result[0]);
   } catch (error) {
     console.error('Error fetching transfer:', error);
     res.status(500).json({ error: 'Failed to fetch transfer' });
@@ -94,12 +93,15 @@ router.post('/', async (req, res) => {
       RETURNING transfer_id, reference, status, created_at
     `;
     
-    const result = await pool.query(query, [
-      reference, fromLocationId, toLocationId, productId, quantity,
-      responsibleUserId, transferDate || new Date().toISOString().split('T')[0]
-    ]);
+    const result = await sequelize.query(query, { 
+      replacements: [
+        reference, fromLocationId, toLocationId, productId, quantity,
+        responsibleUserId, transferDate || new Date().toISOString().split('T')[0]
+      ], 
+      type: QueryTypes.SELECT 
+    });
     
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error('Error creating transfer:', error);
     if (error.code === '23505') {
@@ -129,13 +131,13 @@ router.patch('/:id/status', async (req, res) => {
       RETURNING transfer_id, reference, status, updated_at
     `;
     
-    const result = await pool.query(query, [status, transferId]);
+    const result = await sequelize.query(query, { replacements: [status, transferId], type: QueryTypes.SELECT });
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Transfer not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(result[0]);
   } catch (error) {
     console.error('Error updating transfer status:', error);
     res.status(500).json({ error: 'Failed to update transfer status' });
@@ -153,13 +155,13 @@ router.delete('/:id', async (req, res) => {
       RETURNING transfer_id, reference
     `;
     
-    const result = await pool.query(query, [transferId]);
+    const result = await sequelize.query(query, { replacements: [transferId], type: QueryTypes.SELECT });
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Transfer not found' });
     }
     
-    res.json({ message: 'Transfer deleted successfully', transfer: result.rows[0] });
+    res.json({ message: 'Transfer deleted successfully', transfer: result[0] });
   } catch (error) {
     console.error('Error deleting transfer:', error);
     res.status(500).json({ error: 'Failed to delete transfer' });

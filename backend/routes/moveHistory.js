@@ -1,5 +1,6 @@
 import express from 'express';
-import { pool } from '../db.js';
+import { pool, sequelize } from '../db.js';
+import { QueryTypes } from 'sequelize';
 
 const router = express.Router();
 
@@ -71,7 +72,7 @@ router.get('/', async (req, res) => {
     query += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     params.push(parseInt(limit), parseInt(offset));
     
-    const result = await pool.query(query, params);
+    const result = await sequelize.query(query, { replacements: params, type: QueryTypes.SELECT });
     
     // Get total count for pagination
     let countQuery = `
@@ -113,11 +114,11 @@ router.get('/', async (req, res) => {
       countParamCount++;
     }
     
-    const countResult = await pool.query(countQuery, countParams);
+    const countResult = await sequelize.query(countQuery, { replacements: countParams, type: QueryTypes.SELECT });
     
     res.json({
-      moves: result.rows,
-      total: parseInt(countResult.rows[0].total),
+      moves: result,
+      total: parseInt(countResult[0].total),
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
@@ -153,13 +154,13 @@ router.get('/:id', async (req, res) => {
       WHERE mh.move_id = $1
     `;
     
-    const result = await pool.query(query, [moveId]);
+    const result = await sequelize.query(query, { replacements: [moveId], type: QueryTypes.SELECT });
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return res.status(404).json({ error: 'Move not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(result[0]);
   } catch (error) {
     console.error('Error fetching move:', error);
     res.status(500).json({ error: 'Failed to fetch move' });
@@ -204,8 +205,8 @@ router.get('/stats/summary', async (req, res) => {
     
     query += ' GROUP BY transaction_type ORDER BY transaction_type';
     
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    const result = await sequelize.query(query, { replacements: params, type: QueryTypes.SELECT });
+    res.json(result);
     
   } catch (error) {
     console.error('Error fetching move statistics:', error);
@@ -245,12 +246,15 @@ router.post('/', async (req, res) => {
       RETURNING move_id, transaction_ref, move_timestamp
     `;
     
-    const result = await pool.query(query, [
-      transactionRef, transactionType, productId, fromLocationId,
-      toLocationId, quantityChange, responsibleUserId, description
-    ]);
+    const result = await sequelize.query(query, { 
+      replacements: [
+        transactionRef, transactionType, productId, fromLocationId,
+        toLocationId, quantityChange, responsibleUserId, description
+      ], 
+      type: QueryTypes.SELECT 
+    });
     
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(result[0]);
     
   } catch (error) {
     console.error('Error creating move history:', error);

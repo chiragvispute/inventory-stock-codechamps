@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { pool } from './db.js';
+import { pool, sequelize } from './db.js';
 import { initializeDatabase, checkDatabaseHealth } from './database.js';
 
 // Import routes
@@ -32,8 +32,14 @@ app.use(express.json());
 (async () => {
   try {
     console.log('🔗 Testing database connection...');
+    
+    // Test Sequelize connection
+    await sequelize.authenticate();
+    console.log('✅ Sequelize connected successfully');
+    
+    // Test legacy pool connection for backward compatibility
     await pool.query('SELECT NOW()');
-    console.log('✅ Database connected successfully');
+    console.log('✅ Legacy pool connected successfully');
     
     const isHealthy = await checkDatabaseHealth();
     if (!isHealthy) {
@@ -43,7 +49,7 @@ app.use(express.json());
       console.log('✅ Database structure is healthy');
     }
   } catch (error) {
-    console.error('❌ Database initialization failed:', error.message);
+    console.error('❌ Database initialization failed:', error);
     console.log('⚠️  Server will continue but some features may not work properly');
   }
 })();
