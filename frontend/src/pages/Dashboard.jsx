@@ -4,10 +4,12 @@ import '../styles/Dashboard.css'
 import ReceiptList from './ReceiptList'
 import DeliveryList from './DeliveryList'
 import Stock from './Stock'
+import Chatbot from '../components/Chatbot'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [currentPage, setCurrentPage] = useState('dashboard')
+  const [chatbotOpen, setChatbotOpen] = useState(false)
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -136,6 +138,29 @@ export default function Dashboard() {
 
       {currentPage === 'delivery' && (
         <DeliveryList onBack={() => setCurrentPage('dashboard')} />
+      )}
+
+      {/* Floating Chatbot Widget */}
+      {chatbotOpen && (
+        <div className="chatbot-widget">
+          <Chatbot />
+          <button 
+            className="chatbot-close"
+            onClick={() => setChatbotOpen(false)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+      
+      {!chatbotOpen && (
+        <button 
+          className="chatbot-toggle"
+          onClick={() => setChatbotOpen(true)}
+          title="Open AI Assistant"
+        >
+          💬
+        </button>
       )}
     </div>
   )
