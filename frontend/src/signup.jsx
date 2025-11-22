@@ -56,7 +56,7 @@ function Signup() {
       const data = await response.json();
       
       if (response.ok) {
-        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('token', data.token);
         localStorage.setItem('userInfo', JSON.stringify(data.user));
         navigate('/dashboard');
       } else {
