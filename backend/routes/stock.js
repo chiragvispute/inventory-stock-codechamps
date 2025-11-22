@@ -1,7 +1,11 @@
 import express from 'express';
 import { StockLevelModel } from '../models/StockLevel.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Apply authentication middleware to all routes
+router.use(authenticateToken);
 
 // Get all stock levels
 router.get('/', async (req, res) => {
@@ -11,6 +15,28 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error fetching stock levels:', error);
     res.status(500).json({ error: 'Failed to fetch stock levels' });
+  }
+});
+
+// Get all stock levels with detailed information
+router.get('/detailed', async (req, res) => {
+  try {
+    const stockLevels = await StockLevelModel.getAllStockLevels();
+    
+    // Add calculated fields and enhanced formatting
+    const enhancedStock = stockLevels.map(stock => ({
+      ...stock,
+      is_low_stock: stock.quantity_on_hand <= (stock.min_stock_level || 0) && stock.min_stock_level > 0,
+      utilization_rate: stock.max_stock_level ? 
+        Math.round((stock.quantity_on_hand / stock.max_stock_level) * 100) : null,
+      available_capacity: stock.max_stock_level ? 
+        stock.max_stock_level - stock.quantity_on_hand : null
+    }));
+    
+    res.json(enhancedStock);
+  } catch (error) {
+    console.error('Error fetching detailed stock levels:', error);
+    res.status(500).json({ error: 'Failed to fetch detailed stock levels' });
   }
 });
 

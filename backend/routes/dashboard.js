@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, sequelize } from '../db.js';
+import { QueryTypes } from 'sequelize';
 
 const router = express.Router();
 
@@ -25,47 +26,53 @@ router.get('/', async (req, res) => {
       SELECT COUNT(*) as total 
       FROM stock_levels 
       WHERE quantity_on_hand = 0
-    `, { type: sequelize.QueryTypes.SELECT });
-    const outOfStock = parseInt(outOfStockResult[0].total);
+    `, { type: QueryTypes.SELECT });
+    const outOfStockCount = parseInt(outOfStockResult[0].total);
 
-    // Get pending receipts
-    const receipts = await sequelize.query(`
+    // Get receipt statistics
+    const receiptsQuery = `
       SELECT 
-        COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as to_receive,
-        COUNT(CASE WHEN status = 'confirmed' AND schedule_date < CURRENT_DATE THEN 1 END) as late,
-        COUNT(*) as operations
+        COUNT(*) as total_receipts,
+        COUNT(CASE WHEN status IN ('draft', 'confirmed') THEN 1 END) as pending_receipts,
+        COUNT(CASE WHEN schedule_date < CURRENT_DATE AND status != 'done' THEN 1 END) as late_receipts,
+        COUNT(CASE WHEN status = 'done' THEN 1 END) as completed_receipts
       FROM receipts
-      WHERE status IN ('draft', 'confirmed')
-    `, { type: sequelize.QueryTypes.SELECT });
-    const receiptsData = receipts[0];
+    `;
+    const receiptsResult = await sequelize.query(receiptsQuery, { type: QueryTypes.SELECT });
+    const receiptStats = receiptsResult[0];
 
-    // Get pending deliveries
-    const deliveries = await sequelize.query(`
+    // Get delivery statistics  
+    const deliveriesQuery = `
       SELECT 
-        COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as to_deliver,
-        COUNT(CASE WHEN status = 'draft' THEN 1 END) as waiting,
-        COUNT(*) as operations
+        COUNT(*) as total_deliveries,
+        COUNT(CASE WHEN status IN ('draft', 'confirmed') THEN 1 END) as pending_deliveries,
+        COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as waiting_deliveries,
+        COUNT(CASE WHEN status = 'done' THEN 1 END) as completed_deliveries
       FROM delivery_orders
-      WHERE status IN ('draft', 'confirmed')
-    `, { type: sequelize.QueryTypes.SELECT });
-    const deliveriesData = deliveries[0];
+    `;
+    const deliveriesResult = await sequelize.query(deliveriesQuery, { type: QueryTypes.SELECT });
+    const deliveryStats = deliveriesResult[0];
+
+    // Get warehouse count
+    const warehousesQuery = 'SELECT COUNT(*) as total FROM warehouses';
+    const warehousesResult = await sequelize.query(warehousesQuery, { type: QueryTypes.SELECT });
+    const totalWarehouses = parseInt(warehousesResult[0].total);
 
     res.json({
-      receipts: {
-        toReceive: parseInt(receiptsData.to_receive || 0),
-        late: parseInt(receiptsData.late || 0),
-        operations: parseInt(receiptsData.operations || 0)
-      },
-      deliveries: {
-        toDeliver: parseInt(deliveriesData.to_deliver || 0),
-        waiting: parseInt(deliveriesData.waiting || 0),
-        operations: parseInt(deliveriesData.operations || 0)
-      },
-      stock: {
-        totalItems: totalProducts,
-        lowStock: lowStockAlerts,
-        outOfStock: outOfStock
-      }
+      totalProducts,
+      lowStockAlerts,
+      outOfStockCount,
+      totalWarehouses,
+      // Receipt data
+      totalReceipts: parseInt(receiptStats.total_receipts || 0),
+      pendingReceipts: parseInt(receiptStats.pending_receipts || 0),
+      lateReceipts: parseInt(receiptStats.late_receipts || 0),
+      completedReceipts: parseInt(receiptStats.completed_receipts || 0),
+      // Delivery data
+      totalDeliveries: parseInt(deliveryStats.total_deliveries || 0),
+      pendingDeliveries: parseInt(deliveryStats.pending_deliveries || 0),
+      waitingDeliveries: parseInt(deliveryStats.waiting_deliveries || 0),
+      completedDeliveries: parseInt(deliveryStats.completed_deliveries || 0)
     });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
@@ -95,13 +102,13 @@ router.get('/overview', async (req, res) => {
       SELECT COALESCE(SUM(sl.quantity_on_hand * p.per_unit_cost), 0) as total_value
       FROM stock_levels sl
       JOIN products p ON sl.product_id = p.product_id
-    `, { type: sequelize.QueryTypes.SELECT });
+    `, { type: QueryTypes.SELECT });
     const totalValue = parseFloat(valueResult[0].total_value || 0);
 
     // Get total locations
     const locationsResult = await sequelize.query(
       'SELECT COUNT(*) as total FROM locations',
-      { type: sequelize.QueryTypes.SELECT }
+      { type: QueryTypes.SELECT }
     );
     const totalLocations = parseInt(locationsResult[0].total);
 
@@ -116,7 +123,7 @@ router.get('/overview', async (req, res) => {
       JOIN users u ON mh.responsible_user_id = u.user_id
       ORDER BY mh.move_timestamp DESC
       LIMIT 10
-    `, { type: sequelize.QueryTypes.SELECT });
+    `, { type: QueryTypes.SELECT });
 
     res.json({
       totalProducts,
@@ -147,7 +154,8 @@ router.get('/stock-summary', async (req, res) => {
       LEFT JOIN products p ON sl.product_id = p.product_id
       GROUP BY w.warehouse_id, w.name, w.short_code
       ORDER BY w.name
-    `, { type: sequelize.QueryTypes.SELECT });
+    `, { type: QueryTypes.SELECT });
+    
     res.json(stockSummary);
   } catch (error) {
     console.error('Error fetching stock summary:', error);

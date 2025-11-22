@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, sequelize } from '../db.js';
+import { QueryTypes } from 'sequelize';
 
 const router = express.Router();
 
@@ -21,7 +22,7 @@ router.get('/', async (req, res) => {
       JOIN warehouses tw ON tl.warehouse_id = tw.warehouse_id
       JOIN users u ON it.responsible_user_id = u.user_id
       ORDER BY it.created_at DESC
-    `, { type: sequelize.QueryTypes.SELECT });
+    `, { type: QueryTypes.SELECT });
     res.json(transfers);
   } catch (error) {
     console.error('Error fetching transfers:', error);
@@ -75,14 +76,16 @@ router.post('/', async (req, res) => {
       toLocationId,
       productId,
       quantity,
-      responsibleUserId,
       transferDate
     } = req.body;
+    
+    // Get responsible user ID from authenticated user
+    const responsibleUserId = req.user?.userId;
     
     // Validate required fields
     if (!reference || !fromLocationId || !toLocationId || !productId || !quantity || !responsibleUserId) {
       return res.status(400).json({ 
-        error: 'Missing required fields: reference, fromLocationId, toLocationId, productId, quantity, responsibleUserId' 
+        error: 'Missing required fields: reference, fromLocationId, toLocationId, productId, quantity. User must be authenticated.' 
       });
     }
     

@@ -1,10 +1,14 @@
 import express from 'express';
 import { UserModel } from '../models/User.js';
+import { authenticateToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all users
-router.get('/', async (req, res) => {
+// Apply authentication middleware to all routes
+router.use(authenticateToken);
+
+// Get all users (admin only)
+router.get('/', requireRole(['admin']), async (req, res) => {
   try {
     const users = await UserModel.getAllUsers();
     res.json(users);

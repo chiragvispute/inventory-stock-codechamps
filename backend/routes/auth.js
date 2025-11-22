@@ -1,231 +1,453 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { User } from '../models/User.js';
+import { generateToken, authenticateToken } from '../middleware/auth.js';
+import { 
+  generateOTPWithExpiry, 
+  verifyOTP, 
+  logOTPForTesting 
+} from '../utils/otp.js';
 
 const router = express.Router();
 
-const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-// ---------------- Helper Validations ----------------
-
-const validatePassword = (password) => {
-  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/.test(password);
-};
-
-// ---------------- Users Database (In-Memory for demo) ----------------
-
-let users = [
-  { 
-    id: 1,
-    loginId: 'testuser',
-    username: 'testuser',
-    passwordHash: bcrypt.hashSync('testpass', 10),
-    email: 'test@example.com',
-    role: 'admin',
-    department: 'IT',
-    fullName: 'Test User',
-    otp: null,
-    otpExpiry: null
-  },
-  { 
-    id: 2,
-    loginId: 'manager',
-    username: 'manager',
-    passwordHash: bcrypt.hashSync('manager123', 10),
-    email: 'manager@example.com',
-    role: 'manager',
-    department: 'Sales',
-    fullName: 'Manager User',
-    otp: null,
-    otpExpiry: null
-  }
-];
-
-// ---------------- Helper: Generate Next ID ----------------
-const getNextId = () => {
-  return Math.max(...users.map(u => u.id), 0) + 1;
-};
-
-//
-// ======================== SIGNUP ========================
-//
-router.post('/signup', async (req, res) => {
+// User registration
+router.post('/register', async (req, res) => {
   try {
-    const { loginId, email, password } = req.body;
+    const { 
+      loginId, 
+      email, 
+      password, 
+      firstName, 
+      lastName, 
+      userRole = 'viewer' // Default role (admin, manager, operator, viewer)
+    } = req.body;
 
-    if (!loginId || !email || !password) {
-      return res.status(400).json({ error: 'All fields are required' });
-    }
-
-    const existingUser = users.find(u => u.loginId === loginId || u.email === email);
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this login ID or email already exists' });
-    }
-
-    if (!/^[a-zA-Z0-9_]{6,12}$/.test(loginId)) {
-      return res.status(400).json({ error: 'Login ID must be 6-12 characters (letters, digits, underscore only)' });
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
-
-    if (!validatePassword(password)) {
+    // Validate required fields
+    if (!loginId || !email || !password || !firstName || !lastName) {
       return res.status(400).json({
-        error: "Password must be 8+ chars, include upper, lower, number, and special character"
+        success: false,
+        message: 'All fields are required: loginId, email, password, firstName, lastName'
       });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
 
-    const newUser = {
-      id: getNextId(),
-      loginId,
-      username: loginId,
-      email,
-      passwordHash,
-      role: "staff",
-      department: "General",
-      fullName: loginId,
-      otp: null,
-      otpExpiry: null
+    // Check if user already exists
+    const existingUserByLogin = await User.findOne({
+      where: { login_id: loginId }
+    });
+
+    const existingUserByEmail = await User.findOne({
+      where: { email: email }
+    });
+
+    if (existingUserByLogin || existingUserByEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this login ID or email already exists'
+      });
+    }
+
+    // Hash password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create new user
+    const newUser = await User.create({
+      login_id: loginId,
+      email: email,
+      password: hashedPassword,
+      user_role: userRole,
+      first_name: firstName,
+      last_name: lastName
+    });
+
+    // Generate JWT token
+    const token = generateToken(newUser);
+
+    // Return success response (don't send password)
+    const userResponse = {
+      userId: newUser.user_id,
+      loginId: newUser.login_id,
+      email: newUser.email,
+      role: newUser.user_role,
+      firstName: newUser.first_name,
+      lastName: newUser.last_name
     };
 
-    users.push(newUser);
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      token: token,
+      user: userResponse
+    });
 
-    return res.json({ message: "User registered successfully!" });
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-
-//
-// ======================== LOGIN ========================
-//
-router.post('/login', async (req, res) => {
-  const { loginId, password } = req.body;
-
-  const user = users.find(u => u.loginId === loginId);
-  if (!user) return res.status(401).json({ error: "Invalid Login ID or Password" });
-
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) return res.status(401).json({ error: "Invalid Login ID or Password" });
-
-  const token = jwt.sign(
-    { userId: user.id, loginId: user.loginId, email: user.email, role: user.role },
-    SECRET_KEY,
-    { expiresIn: "1h" }
-  );
-
-  return res.json({ 
-    message: "Login successful", 
-    token,
-    user: {
-      id: user.id,
-      loginId: user.loginId,
-      email: user.email,
-      role: user.role,
-      fullName: user.fullName
-    }
-  });
-});
-
-
-//
-// ======================== REQUEST OTP ========================
-//
-router.post('/request-otp', (req, res) => {
-  const { email } = req.body;
-
-  const user = users.find(u => u.email === email);
-  if (!user) return res.status(404).json({ error: "No account found with this email" });
-
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-  user.otp = otp;
-  user.otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
-
-  console.log("Generated OTP (Demo):", otp, "for", email);
-
-  return res.json({ message: "OTP sent (demo mode)", otp });
-});
-
-
-//
-// ======================== RESET PASSWORD ========================
-//
-router.post('/reset-password', async (req, res) => {
-  const { email, otp, newPassword } = req.body;
-
-  const user = users.find(u => u.email === email);
-  if (!user) return res.status(404).json({ error: "User not found" });
-
-  if (!otp || user.otp !== otp) {
-    return res.status(400).json({ error: "Invalid OTP" });
-  }
-
-  if (Date.now() > user.otpExpiry) {
-    return res.status(400).json({ error: "OTP expired" });
-  }
-
-  if (!validatePassword(newPassword)) {
-    return res.status(400).json({
-      error: "Password must be 8+ chars, include upper, lower, number & special char"
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed',
+      error: error.message
     });
   }
-
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
-  user.otp = null;
-  user.otpExpiry = null;
-
-  return res.json({ message: "Password reset successful" });
 });
 
+// User login
+router.post('/login', async (req, res) => {
+  try {
+    const { loginId, password } = req.body;
 
-//
-// ======================== PROTECTED ROUTE ========================
-router.get('/protected', (req, res) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, SECRET_KEY, (err, user) => {
-    if (err) return res.sendStatus(403);
-    res.json({ message: `Welcome ${user.loginId}!`, user });
-  });
-});
-
-// ======================== GET CURRENT USER ========================
-router.get('/me', (req, res) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-
-  jwt.verify(token, SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
+    // Validate input
+    if (!loginId || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Login ID and password are required'
+      });
     }
-    
-    const user = users.find(u => u.id === decoded.userId);
+
+    // Find user by login_id
+    const user = await User.findOne({
+      where: { login_id: loginId }
+    });
+
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid login credentials'
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid login credentials'
+      });
+    }
+
+    // Generate JWT token
+    const token = generateToken(user);
+
+    // Update last login timestamp
+    await user.update({ updated_at: new Date() });
+
+    // Return success response (don't send password)
+    const userResponse = {
+      userId: user.user_id,
+      loginId: user.login_id,
+      email: user.email,
+      role: user.user_role,
+      firstName: user.first_name,
+      lastName: user.last_name
+    };
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token: token,
+      user: userResponse
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed',
+      error: error.message
+    });
+  }
+});
+
+// Get current user profile (protected route)
+router.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.userId, {
+      attributes: { exclude: ['password'] } // Don't send password
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
     }
 
     res.json({
-      id: user.id,
-      loginId: user.loginId,
-      email: user.email,
-      role: user.role,
-      fullName: user.fullName,
-      department: user.department
+      success: true,
+      user: {
+        userId: user.user_id,
+        loginId: user.login_id,
+        email: user.email,
+        role: user.user_role,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at
+      }
     });
+
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user profile',
+      error: error.message
+    });
+  }
+});
+
+// Update user profile (protected route)
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { firstName, lastName, email } = req.body;
+
+    const user = await User.findByPk(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update user fields
+    await user.update({
+      first_name: firstName || user.first_name,
+      last_name: lastName || user.last_name,
+      email: email || user.email
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        userId: user.user_id,
+        loginId: user.login_id,
+        email: user.email,
+        role: user.user_role,
+        firstName: user.first_name,
+        lastName: user.last_name
+      }
+    });
+
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+      error: error.message
+    });
+  }
+});
+
+// Verify token route
+router.post('/verify', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Token is valid',
+    user: req.user
   });
+});
+
+// Logout route (client-side token removal, but can be used for logging)
+router.post('/logout', authenticateToken, (req, res) => {
+  // In a more advanced setup, you might want to blacklist tokens
+  res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
+});
+
+// Forgot password - Send OTP
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({
+      where: { email: email }
+    });
+
+    if (!user) {
+      // Don't reveal if email exists or not for security
+      return res.json({
+        success: true,
+        message: 'If the email exists, an OTP has been sent'
+      });
+    }
+
+    // Generate OTP
+    const { otp } = generateOTPWithExpiry();
+    
+    // Debug logging
+    console.log('OTP Generation Debug:');
+    console.log('- Email:', email);
+    console.log('- OTP:', otp);
+    console.log('- Generated at:', new Date().toISOString());
+
+    // Save OTP to database
+    await user.update({
+      reset_otp: otp,
+      reset_otp_expires: null
+    });
+
+    // Log OTP to console for development/testing
+    logOTPForTesting(email, otp);
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully. Check the console for OTP.',
+      otp: otp // Include OTP in response for development
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process forgot password request'
+    });
+  }
+});
+
+// Verify OTP
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({
+      where: { email: email }
+    });
+
+    if (!user || !user.reset_otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Verify OTP
+    const otpVerification = verifyOTP(
+      user.reset_otp,
+      user.reset_otp_expires,
+      otp
+    );
+
+    if (!otpVerification.valid) {
+      return res.status(400).json({
+        success: false,
+        message: otpVerification.reason
+      });
+    }
+
+    // OTP is valid - generate temporary reset token
+    const resetToken = generateToken(user);
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      resetToken: resetToken
+    });
+
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP'
+    });
+  }
+});
+
+// Reset password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email, OTP, and new password are required'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({
+      where: { email: email }
+    });
+
+    if (!user || !user.reset_otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Verify OTP one more time
+    const otpVerification = verifyOTP(
+      user.reset_otp,
+      user.reset_otp_expires,
+      otp
+    );
+
+    if (!otpVerification.valid) {
+      return res.status(400).json({
+        success: false,
+        message: otpVerification.reason
+      });
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password and clear OTP
+    await user.update({
+      password: hashedPassword,
+      reset_otp: null,
+      reset_otp_expires: null
+    });
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset password'
+    });
+  }
 });
 
 export default router;

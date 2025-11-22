@@ -1,38 +1,119 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import '../styles/ReceiptDetail.css'
 import ContactDetail from '../components/ContactDetail'
 
 export default function ReceiptDetail({ onBack, receiptId = null }) {
   const [receipt, setReceipt] = useState({
-    id: receiptId || 'WH/IN/0001',
-    receiveFrom: 'Harshal Bhave',
+    id: '',
+    receiveFrom: '',
     responsible: '',
     scheduledDate: '',
-    status: 'draft', // draft, ready, done
-    products: [{ id: 1, name: '', quantity: '' }]
+    status: 'draft',
+    products: []
   })
 
-  const [products, setProducts] = useState([
-    { id: 1, name: '', quantity: '' }
-  ])
-
+  const [products, setProducts] = useState([])
   const [selectedContact, setSelectedContact] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const [contactData, setContactData] = useState({
-    name: receipt.receiveFrom,
-    email: 'harshal@gmail.com',
-    phone: '+91 9876543210',
-    company: 'ABC Company',
-    jobPosition: 'Sales Director',
-    gstin: 'BE0477472701',
-    street: '123 Business Street',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    zip: '400001',
-    country: 'India',
-    website: 'https://www.example.com',
-    tags: 'B2B, VIP, Consulting'
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    jobPosition: '',
+    gstin: '',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: '',
+    website: '',
+    tags: ''
   })
+
+  useEffect(() => {
+    if (receiptId) {
+      // Check if this is a new auto-generated reference
+      const isNewReference = typeof receiptId === 'string' && receiptId.match(/^REC-\d{4}-\d{6}$/)
+      
+      if (isNewReference) {
+        // Initialize new receipt with the generated reference
+        setReceipt({
+          id: receiptId,
+          receiveFrom: '',
+          responsible: '',
+          scheduledDate: new Date().toISOString().split('T')[0],
+          status: 'draft',
+          products: []
+        })
+        setProducts([{ id: 1, name: '', quantity: '', expectedQuantity: '', unitCost: '' }])
+      } else {
+        // Fetch existing receipt
+        fetchReceiptDetail()
+      }
+    } else {
+      // Initialize new receipt
+      setReceipt({
+        id: 'WH/IN/NEW',
+        receiveFrom: '',
+        responsible: '',
+        scheduledDate: new Date().toISOString().split('T')[0],
+        status: 'draft',
+        products: []
+      })
+      setProducts([{ id: 1, name: '', quantity: '', expectedQuantity: '', unitCost: '' }])
+    }
+  }, [receiptId])
+
+  const fetchReceiptDetail = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:5001/api/receipts/${receiptId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch receipt details')
+      }
+
+      const data = await response.json()
+      setReceipt({
+        id: data.reference,
+        receiveFrom: data.supplier_name || 'Unknown Supplier',
+        responsible: data.responsible_user,
+        scheduledDate: data.schedule_date,
+        status: data.status,
+        products: data.items || []
+      })
+
+      if (data.items && data.items.length > 0) {
+        setProducts(data.items.map((item, index) => ({
+          id: index + 1,
+          name: item.product_name,
+          quantity: item.quantity_received || '',
+          expectedQuantity: item.quantity_expected,
+          unitCost: item.unit_cost_at_receipt || '',
+          productId: item.product_id,
+          sku: item.sku_code
+        })))
+      } else {
+        setProducts([{ id: 1, name: '', quantity: '', expectedQuantity: '', unitCost: '' }])
+      }
+
+      setError('')
+    } catch (err) {
+      console.error('Error fetching receipt details:', err)
+      setError('Failed to load receipt details. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleInputChange = (field, value) => {
     setReceipt(prev => ({
@@ -90,9 +171,74 @@ export default function ReceiptDetail({ onBack, receiptId = null }) {
   const handleContactSave = (updatedContact) => {
     // Update the contact data with changes
     setContactData(updatedContact)
-    // In future, this will call API to update the database
+    // Update the receiveFrom field with the contact name
+    setReceipt(prev => ({
+      ...prev,
+      receiveFrom: updatedContact.name || updatedContact.company || 'Unknown Supplier'
+    }))
     console.log('Contact updated:', updatedContact)
     alert('Contact details updated successfully!')
+  }
+
+  const handleSaveReceipt = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      
+      // Prepare the receipt data for API
+      const receiptData = {
+        reference: receipt.id,
+        scheduleDate: receipt.scheduledDate,
+        supplierId: contactData.id || null, // Use contact ID if available
+        toLocationId: 1, // Default to first location (you might want to make this configurable)
+        items: products.filter(p => p.name).map(product => ({
+          productId: product.productId || null,
+          quantityExpected: parseFloat(product.expectedQuantity) || 0,
+          quantityReceived: parseFloat(product.quantity) || 0,
+          unitCost: parseFloat(product.unitCost) || 0
+        }))
+      }
+      
+      // Check if this is a new receipt (starts with REC-YYYY) or existing one
+      const isNewReceipt = receipt.id.match(/^REC-\d{4}-\d{6}$/) || receipt.id === 'WH/IN/NEW'
+      
+      let response
+      if (isNewReceipt) {
+        // Create new receipt
+        response = await fetch('http://localhost:5001/api/receipts', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(receiptData)
+        })
+      } else {
+        // Update existing receipt (you might want to implement PUT endpoint)
+        throw new Error('Update functionality not yet implemented')
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save receipt')
+      }
+      
+      const savedReceipt = await response.json()
+      alert('Receipt saved successfully!')
+      
+      // Update the receipt with the saved data
+      if (savedReceipt.receipt_id) {
+        setReceipt(prev => ({ ...prev, id: savedReceipt.reference }))
+      }
+      
+      setError('')
+    } catch (err) {
+      console.error('Error saving receipt:', err)
+      setError(err.message || 'Failed to save receipt. Please try again.')
+      alert('Failed to save receipt: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -116,6 +262,9 @@ export default function ReceiptDetail({ onBack, receiptId = null }) {
                 <>
                   <button className="btn btn-secondary">Print</button>
                   <button className="btn btn-secondary">Cancel</button>
+                  <button className="btn btn-success" onClick={handleSaveReceipt} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Receipt'}
+                  </button>
                   <button className="btn btn-primary" onClick={handleMarkAsReady}>Mark as Todo</button>
                 </>
               )}
@@ -148,13 +297,23 @@ export default function ReceiptDetail({ onBack, receiptId = null }) {
             <div className="form-section">
               <div className="form-group">
                 <label>Receive From</label>
-                <button
-                  type="button"
-                  className="contact-button"
-                  onClick={() => setSelectedContact(contactData)}
-                >
-                  {receipt.receiveFrom}
-                </button>
+                <div style={{display: 'flex', gap: '0.5rem'}}>
+                  <input
+                    type="text"
+                    placeholder="Enter supplier name"
+                    value={receipt.receiveFrom}
+                    onChange={(e) => handleInputChange('receiveFrom', e.target.value)}
+                    style={{flex: 1}}
+                  />
+                  <button
+                    type="button"
+                    className="contact-button"
+                    onClick={() => setSelectedContact(contactData)}
+                    style={{padding: '0.5rem 1rem', whiteSpace: 'nowrap'}}
+                  >
+                    Contact Details
+                  </button>
+                </div>
               </div>
 
               <div className="form-group">

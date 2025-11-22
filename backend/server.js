@@ -75,7 +75,7 @@ app.use('/api/receipts', receiptRoutes);
 app.use('/api/deliveries', deliveryRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/adjustments', adjustmentRoutes);
-app.use('/api/move-history', moveHistoryRoutes);
+app.use('/api/moveHistory', moveHistoryRoutes);
 
 app.get('/api', (req, res) => {
   res.json({ message: 'StockMaster API' });

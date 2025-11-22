@@ -1,24 +1,28 @@
 import express from 'express';
 import { pool, sequelize } from '../db.js';
 import { QueryTypes } from 'sequelize';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Apply authentication middleware to all routes
+router.use(authenticateToken);
 
 // Get all delivery orders
 router.get('/', async (req, res) => {
   try {
     const query = `
-      SELECT do.delivery_order_id, do.reference, do.schedule_date, 
-             do.operation_type, do.status, do.to_location, do.created_at,
+      SELECT delo.delivery_order_id, delo.reference, delo.schedule_date, 
+             delo.status, delo.created_at,
              c.name as customer_name,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as from_location_name, w.name as warehouse_name
-      FROM delivery_orders do
-      LEFT JOIN customers c ON do.customer_id = c.customer_id
-      LEFT JOIN users u ON do.responsible_user_id = u.user_id
-      LEFT JOIN locations l ON do.from_location_id = l.location_id
+      FROM delivery_orders delo
+      LEFT JOIN customers c ON delo.customer_id = c.customer_id
+      LEFT JOIN users u ON delo.responsible_user_id = u.user_id
+      LEFT JOIN locations l ON delo.from_location_id = l.location_id
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
-      ORDER BY do.created_at DESC
+      ORDER BY delo.created_at DESC
     `;
     const result = await sequelize.query(query, { type: QueryTypes.SELECT });
     res.json(result);
@@ -33,19 +37,23 @@ router.get('/:id', async (req, res) => {
   try {
     const deliveryOrderId = parseInt(req.params.id);
     
+    if (isNaN(deliveryOrderId)) {
+      return res.status(400).json({ error: 'Invalid delivery order ID' });
+    }
+    
     // Get delivery order header
     const orderQuery = `
-      SELECT do.delivery_order_id, do.reference, do.schedule_date, 
-             do.operation_type, do.status, do.to_location, do.created_at,
+      SELECT delo.delivery_order_id, delo.reference, delo.schedule_date, 
+             delo.status, delo.created_at,
              c.name as customer_name, c.contact_person as customer_contact,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as from_location_name, w.name as warehouse_name
-      FROM delivery_orders do
-      LEFT JOIN customers c ON do.customer_id = c.customer_id
-      LEFT JOIN users u ON do.responsible_user_id = u.user_id
-      LEFT JOIN locations l ON do.from_location_id = l.location_id
+      FROM delivery_orders delo
+      LEFT JOIN customers c ON delo.customer_id = c.customer_id
+      LEFT JOIN users u ON delo.responsible_user_id = u.user_id
+      LEFT JOIN locations l ON delo.from_location_id = l.location_id
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
-      WHERE do.delivery_order_id = $1
+      WHERE delo.delivery_order_id = $1
     `;
     
     const orderResult = await sequelize.query(orderQuery, { replacements: [deliveryOrderId], type: QueryTypes.SELECT });
@@ -86,32 +94,31 @@ router.post('/', async (req, res) => {
     const {
       reference,
       scheduleDate,
-      operationType,
       customerId,
-      responsibleUserId,
       fromLocationId,
-      toLocation,
       items
     } = req.body;
+    
+    // Get responsible user ID from authenticated user
+    const responsibleUserId = req.user?.userId;
     
     // Validate required fields
     if (!reference || !scheduleDate || !responsibleUserId || !fromLocationId) {
       return res.status(400).json({ 
-        error: 'Missing required fields: reference, scheduleDate, responsibleUserId, fromLocationId' 
+        error: 'Missing required fields: reference, scheduleDate, fromLocationId. User must be authenticated.' 
       });
     }
     
     // Create delivery order header
     const orderQuery = `
-      INSERT INTO delivery_orders (reference, schedule_date, operation_type, customer_id, 
-                                  responsible_user_id, from_location_id, to_location)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO delivery_orders (reference, schedule_date, customer_id, 
+                                  responsible_user_id, from_location_id)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING delivery_order_id, reference, created_at
     `;
     
     const orderResult = await client.query(orderQuery, [
-      reference, scheduleDate, operationType || 'sale', customerId,
-      responsibleUserId, fromLocationId, toLocation
+      reference, scheduleDate, customerId, responsibleUserId, fromLocationId
     ]);
     
     const newOrder = orderResult[0];
@@ -155,6 +162,10 @@ router.post('/', async (req, res) => {
 router.patch('/:id/status', async (req, res) => {
   try {
     const deliveryOrderId = parseInt(req.params.id);
+    
+    if (isNaN(deliveryOrderId)) {
+      return res.status(400).json({ error: 'Invalid delivery order ID' });
+    }
     const { status } = req.body;
     
     if (!status) {
@@ -163,10 +174,9 @@ router.patch('/:id/status', async (req, res) => {
     
     const query = `
       UPDATE delivery_orders 
-      SET status = $1, 
-          validated_at = CASE WHEN $1 = 'validated' THEN CURRENT_TIMESTAMP ELSE validated_at END
+      SET status = $1
       WHERE delivery_order_id = $2
-      RETURNING delivery_order_id, reference, status, validated_at
+      RETURNING delivery_order_id, reference, status
     `;
     
     const result = await sequelize.query(query, { replacements: [status, deliveryOrderId], type: QueryTypes.SELECT });
@@ -186,6 +196,10 @@ router.patch('/:id/status', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const deliveryOrderId = parseInt(req.params.id);
+    
+    if (isNaN(deliveryOrderId)) {
+      return res.status(400).json({ error: 'Invalid delivery order ID' });
+    }
     
     const query = `
       DELETE FROM delivery_orders 

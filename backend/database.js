@@ -15,29 +15,17 @@ export async function initializeDatabase() {
   try {
     console.log('🚀 Starting database initialization...');
     
-    // Read and execute table creation script
-    const createTablesPath = path.join(__dirname, 'migrations', '001_create_tables.sql');
-    const createTablesSQL = fs.readFileSync(createTablesPath, 'utf8');
+    // Read and execute complete database script
+    const completeDatabasePath = path.join(__dirname, 'migrations', 'complete_database.sql');
+    const completeDatabaseSQL = fs.readFileSync(completeDatabasePath, 'utf8');
     
-    console.log('📋 Creating database tables...');
-    await client.query(createTablesSQL);
-    console.log('✅ Database tables created successfully');
+    console.log('📋 Creating database tables and inserting sample data...');
+    await client.query(completeDatabaseSQL);
+    console.log('✅ Database setup completed successfully');
     
-    // Check if sample data already exists
-    const result = await client.query('SELECT COUNT(*) FROM users');
-    const userCount = parseInt(result.rows[0].count);
-    
-    if (userCount === 0) {
-      // Read and execute sample data script
-      const sampleDataPath = path.join(__dirname, 'migrations', '002_sample_data.sql');
-      const sampleDataSQL = fs.readFileSync(sampleDataPath, 'utf8');
-      
-      console.log('📊 Inserting sample data...');
-      await client.query(sampleDataSQL);
-      console.log('✅ Sample data inserted successfully');
-    } else {
-      console.log('ℹ️  Sample data already exists, skipping...');
-    }
+    // Update user passwords with proper hashes
+    console.log('🔑 Updating user passwords...');
+    await updateSamplePasswords(client);
     
     console.log('🎉 Database initialization completed successfully!');
     
@@ -46,6 +34,72 @@ export async function initializeDatabase() {
     throw error;
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Update sample user passwords with proper bcrypt hashes
+ */
+async function updateSamplePasswords(client) {
+  // Import bcrypt dynamically to avoid import issues
+  const bcrypt = (await import('bcryptjs')).default;
+  
+  const userUpdates = [
+    { loginId: 'admin', password: 'admin123' },
+    { loginId: 'manager1', password: 'manager123' },
+    { loginId: 'operator1', password: 'operator123' }
+  ];
+  
+  for (const user of userUpdates) {
+    try {
+      const hashedPassword = await bcrypt.hash(user.password, 12);
+      await client.query(
+        'UPDATE users SET password = $1 WHERE login_id = $2',
+        [hashedPassword, user.loginId]
+      );
+      console.log(`✅ Updated password for: ${user.loginId}`);
+    } catch (err) {
+      console.error(`❌ Failed to update password for ${user.loginId}:`, err.message);
+    }
+  }
+  
+  // Add our test users if they don't exist
+  const testUsers = [
+    {
+      loginId: 'testuser',
+      email: 'test@example.com',
+      password: 'testpass',
+      firstName: 'Test',
+      lastName: 'User',
+      role: 'admin'
+    },
+    {
+      loginId: 'manager',
+      email: 'manager@example.com',
+      password: 'manager123',
+      firstName: 'Manager',
+      lastName: 'User',
+      role: 'manager'
+    }
+  ];
+  
+  for (const user of testUsers) {
+    try {
+      // Check if user exists
+      const existing = await client.query('SELECT user_id FROM users WHERE login_id = $1', [user.loginId]);
+      
+      if (existing.rows.length === 0) {
+        // Create user
+        const hashedPassword = await bcrypt.hash(user.password, 12);
+        await client.query(`
+          INSERT INTO users (login_id, email, password, user_role, first_name, last_name)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [user.loginId, user.email, hashedPassword, user.role, user.firstName, user.lastName]);
+        console.log(`✅ Created test user: ${user.loginId}`);
+      }
+    } catch (err) {
+      console.error(`❌ Failed to create test user ${user.loginId}:`, err.message);
+    }
   }
 }
 
@@ -60,6 +114,9 @@ export async function resetDatabase() {
     
     // Drop all tables in reverse order to avoid foreign key constraints
     const dropTablesSQL = `
+      DROP TABLE IF EXISTS dashboard_widgets CASCADE;
+      DROP TABLE IF EXISTS system_settings CASCADE;
+      DROP TABLE IF EXISTS notifications CASCADE;
       DROP TABLE IF EXISTS move_history CASCADE;
       DROP TABLE IF EXISTS stock_adjustments CASCADE;
       DROP TABLE IF EXISTS internal_transfers CASCADE;
@@ -121,7 +178,8 @@ export async function checkDatabaseHealth() {
       'users', 'warehouses', 'locations', 'product_categories', 'products',
       'stock_levels', 'suppliers', 'customers', 'receipts', 'receipt_items',
       'delivery_orders', 'delivery_order_items', 'internal_transfers',
-      'stock_adjustments', 'move_history'
+      'stock_adjustments', 'move_history', 'notifications', 'system_settings',
+      'dashboard_widgets'
     ];
     
     const missingTables = expectedTables.filter(table => !tables.includes(table));

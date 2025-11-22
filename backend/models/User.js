@@ -7,40 +7,61 @@ const User = sequelize.define('User', {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true,
+    field: 'user_id'
   },
   login_id: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(100),
     unique: true,
     allowNull: false,
+    field: 'login_id'
   },
   email: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     unique: true,
     allowNull: false,
+    field: 'email',
     validate: {
       isEmail: true,
     },
   },
   password: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: false,
+    field: 'password'
   },
   user_role: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(50),
     allowNull: false,
-    defaultValue: 'user',
+    defaultValue: 'viewer',
+    field: 'user_role',
+    validate: {
+      isIn: [['admin', 'manager', 'operator', 'viewer']]
+    }
   },
   first_name: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(100),
     allowNull: false,
+    field: 'first_name'
   },
   last_name: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(100),
     allowNull: false,
+    field: 'last_name'
   },
   otp_secret: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(255),
     allowNull: true,
+    field: 'otp_secret'
+  },
+  reset_otp: {
+    type: DataTypes.STRING(6),
+    allowNull: true,
+    field: 'reset_otp'
+  },
+  reset_otp_expires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'reset_otp_expires'
   },
 }, {
   tableName: 'users',

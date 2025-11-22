@@ -6,41 +6,67 @@ function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  const validatePassword = (password) => {
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/.test(password);
+  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (!validatePassword(password)) {
+      setError('Password must be 8+ chars, include upper, lower, number, and special character (@$!%*?&)');
+      setLoading(false);
+      return;
+    }
+
+    if (loginId.length < 3 || loginId.length > 20) {
+      setError('Login ID must be 3-20 characters');
+      setLoading(false);
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/auth/signup', {
+      setLoading(true);
+      const response = await fetch('http://localhost:5001/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loginId, email, password })
+        body: JSON.stringify({ 
+          loginId: loginId, 
+          email: email, 
+          password: password,
+          firstName: firstName,
+          lastName: lastName
+        })
       });
 
-      if (!response.ok) {
-        throw new Error('Signup failed');
-      }
-
       const data = await response.json();
-      const token = data.token;
-      localStorage.setItem('token', token);
-      navigate('/dashboard');
+      
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('userInfo', JSON.stringify(data.user));
+        navigate('/dashboard');
+      } else {
+        throw new Error(data.message || 'Signup failed');
+      }
     } catch (err) {
       console.error('Signup failed:', err);
       setError('Signup failed: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -55,8 +81,31 @@ function Signup() {
               type="text" 
               value={loginId} 
               onChange={(e) => setLoginId(e.target.value)} 
-              placeholder="Choose your login ID"
+              placeholder="Choose your login ID (3-20 chars)"
               required 
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label>First Name:</label>
+            <input 
+              type="text" 
+              value={firstName} 
+              onChange={(e) => setFirstName(e.target.value)} 
+              placeholder="Enter your first name"
+              required 
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label>Last Name:</label>
+            <input 
+              type="text" 
+              value={lastName} 
+              onChange={(e) => setLastName(e.target.value)} 
+              placeholder="Enter your last name"
+              required 
+              disabled={loading}
             />
           </div>
           <div>
@@ -67,6 +116,7 @@ function Signup() {
               onChange={(e) => setEmail(e.target.value)} 
               placeholder="Enter your email"
               required 
+              disabled={loading}
             />
           </div>
           <div>
@@ -75,8 +125,9 @@ function Signup() {
               type="password" 
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
-              placeholder="Enter password (min. 6 chars)"
+              placeholder="8+ chars with upper, lower, number, special"
               required 
+              disabled={loading}
             />
           </div>
           <div>
@@ -87,9 +138,12 @@ function Signup() {
               onChange={(e) => setConfirmPassword(e.target.value)} 
               placeholder="Confirm password"
               required 
+              disabled={loading}
             />
           </div>
-          <button type="submit">Sign Up</button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Creating Account...' : 'Sign Up'}
+          </button>
         </form>
 
         <div style={{marginTop: '1.5rem', textAlign: 'center', borderTop: '1px solid #e5e7eb', padding: '0.2rem'}}>
@@ -117,15 +171,22 @@ function Signup() {
         {error && <p style={{color: 'red', marginTop: '1rem', textAlign: 'center'}}>{error}</p>}
 
         <div style={{marginTop: '2rem', padding: '1rem', backgroundColor: '#f9f9f9', borderRadius: '4px'}}>
-          <p style={{fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem'}}>Demo Credentials:</p>
-          <p style={{fontSize: '0.8rem', color: '#666'}}>Login ID: testuser, Password: testpass</p>
-          <p style={{fontSize: '0.8rem', color: '#666'}}>Login ID: manager, Password: manager123</p>
+          <p style={{fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem'}}>Existing Database Users:</p>
+          <p style={{fontSize: '0.8rem', color: '#666'}}>admin / admin123 (admin role)</p>
+          <p style={{fontSize: '0.8rem', color: '#666'}}>manager1 / manager123 (manager role)</p>
+          <p style={{fontSize: '0.8rem', color: '#666'}}>operator1 / operator123 (operator role)</p>
+          <div style={{marginTop: '1rem', padding: '0.5rem', backgroundColor: '#e3f2fd', border: '1px solid #2196f3', borderRadius: '4px'}}>
+            <p style={{fontSize: '0.8rem', color: '#1976d2', fontWeight: 'bold'}}>✅ New users saved to database!</p>
+            <p style={{fontSize: '0.75rem', color: '#1976d2'}}>✅ Strong password validation</p>
+            <p style={{fontSize: '0.75rem', color: '#1976d2'}}>✅ Automatic login after signup</p>
+            <p style={{fontSize: '0.75rem', color: '#1976d2'}}>✅ New accounts get 'operator' role</p>
+          </div>
           <div style={{marginTop: '1rem', padding: '0.5rem', backgroundColor: '#fef3cd', border: '1px solid #f59e0b', borderRadius: '4px'}}>
-            <p style={{fontSize: '0.8rem', color: '#92400e', fontWeight: 'bold'}}>For Signup - Valid Password Examples:</p>
-            <p style={{fontSize: '0.75rem', color: '#92400e'}}>Password123!</p>
-            <p style={{fontSize: '0.75rem', color: '#92400e'}}>MyPass@2024</p>
-            <p style={{fontSize: '0.75rem', color: '#92400e'}}>Test@User1</p>
-            <p style={{fontSize: '0.75rem', color: '#92400e'}}>Demo@1234</p>
+            <p style={{fontSize: '0.8rem', color: '#92400e', fontWeight: 'bold'}}>Password Requirements:</p>
+            <p style={{fontSize: '0.75rem', color: '#92400e'}}>• 8+ characters</p>
+            <p style={{fontSize: '0.75rem', color: '#92400e'}}>• Upper & lower case letters</p>
+            <p style={{fontSize: '0.75rem', color: '#92400e'}}>• Numbers & special chars (@$!%*?&)</p>
+            <p style={{fontSize: '0.75rem', color: '#92400e', fontWeight: 'bold'}}>Examples: Password123!, Test@User1, Demo@1234</p>
           </div>
         </div>
       </div>
