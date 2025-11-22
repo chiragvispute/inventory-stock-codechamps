@@ -9,7 +9,7 @@ router.get('/', async (req, res) => {
   try {
     const query = `
       SELECT do.delivery_order_id, do.reference, do.schedule_date, 
-             do.operation_type, do.status, do.to_location, do.created_at,
+             do.status, do.created_at,
              c.name as customer_name,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as from_location_name, w.name as warehouse_name
@@ -40,7 +40,7 @@ router.get('/:id', async (req, res) => {
     // Get delivery order header
     const orderQuery = `
       SELECT do.delivery_order_id, do.reference, do.schedule_date, 
-             do.operation_type, do.status, do.to_location, do.created_at,
+             do.status, do.created_at,
              c.name as customer_name, c.contact_person as customer_contact,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as from_location_name, w.name as warehouse_name
@@ -90,11 +90,9 @@ router.post('/', async (req, res) => {
     const {
       reference,
       scheduleDate,
-      operationType,
       customerId,
       responsibleUserId,
       fromLocationId,
-      toLocation,
       items
     } = req.body;
     
@@ -107,15 +105,14 @@ router.post('/', async (req, res) => {
     
     // Create delivery order header
     const orderQuery = `
-      INSERT INTO delivery_orders (reference, schedule_date, operation_type, customer_id, 
-                                  responsible_user_id, from_location_id, to_location)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO delivery_orders (reference, schedule_date, customer_id, 
+                                  responsible_user_id, from_location_id)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING delivery_order_id, reference, created_at
     `;
     
     const orderResult = await client.query(orderQuery, [
-      reference, scheduleDate, operationType || 'sale', customerId,
-      responsibleUserId, fromLocationId, toLocation
+      reference, scheduleDate, customerId, responsibleUserId, fromLocationId
     ]);
     
     const newOrder = orderResult[0];
@@ -171,10 +168,9 @@ router.patch('/:id/status', async (req, res) => {
     
     const query = `
       UPDATE delivery_orders 
-      SET status = $1, 
-          validated_at = CASE WHEN $1 = 'validated' THEN CURRENT_TIMESTAMP ELSE validated_at END
+      SET status = $1
       WHERE delivery_order_id = $2
-      RETURNING delivery_order_id, reference, status, validated_at
+      RETURNING delivery_order_id, reference, status
     `;
     
     const result = await sequelize.query(query, { replacements: [status, deliveryOrderId], type: QueryTypes.SELECT });

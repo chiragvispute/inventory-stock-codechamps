@@ -15,33 +15,17 @@ export async function initializeDatabase() {
   try {
     console.log('🚀 Starting database initialization...');
     
-    // Read and execute table creation script
-    const createTablesPath = path.join(__dirname, 'migrations', '001_create_tables.sql');
-    const createTablesSQL = fs.readFileSync(createTablesPath, 'utf8');
+    // Read and execute complete database script
+    const completeDatabasePath = path.join(__dirname, 'migrations', 'complete_database.sql');
+    const completeDatabaseSQL = fs.readFileSync(completeDatabasePath, 'utf8');
     
-    console.log('📋 Creating database tables...');
-    await client.query(createTablesSQL);
-    console.log('✅ Database tables created successfully');
+    console.log('📋 Creating database tables and inserting sample data...');
+    await client.query(completeDatabaseSQL);
+    console.log('✅ Database setup completed successfully');
     
-    // Check if sample data already exists
-    const result = await client.query('SELECT COUNT(*) FROM users');
-    const userCount = parseInt(result.rows[0].count);
-    
-    if (userCount === 0) {
-      // Read and execute sample data script
-      const sampleDataPath = path.join(__dirname, 'migrations', '002_sample_data.sql');
-      const sampleDataSQL = fs.readFileSync(sampleDataPath, 'utf8');
-      
-      console.log('📊 Inserting sample data...');
-      await client.query(sampleDataSQL);
-      console.log('✅ Sample data inserted successfully');
-      
-      // Update user passwords with proper hashes
-      console.log('🔑 Updating user passwords...');
-      await updateSamplePasswords(client);
-    } else {
-      console.log('ℹ️  Sample data already exists, skipping...');
-    }
+    // Update user passwords with proper hashes
+    console.log('🔑 Updating user passwords...');
+    await updateSamplePasswords(client);
     
     console.log('🎉 Database initialization completed successfully!');
     
@@ -130,6 +114,9 @@ export async function resetDatabase() {
     
     // Drop all tables in reverse order to avoid foreign key constraints
     const dropTablesSQL = `
+      DROP TABLE IF EXISTS dashboard_widgets CASCADE;
+      DROP TABLE IF EXISTS system_settings CASCADE;
+      DROP TABLE IF EXISTS notifications CASCADE;
       DROP TABLE IF EXISTS move_history CASCADE;
       DROP TABLE IF EXISTS stock_adjustments CASCADE;
       DROP TABLE IF EXISTS internal_transfers CASCADE;
@@ -191,7 +178,8 @@ export async function checkDatabaseHealth() {
       'users', 'warehouses', 'locations', 'product_categories', 'products',
       'stock_levels', 'suppliers', 'customers', 'receipts', 'receipt_items',
       'delivery_orders', 'delivery_order_items', 'internal_transfers',
-      'stock_adjustments', 'move_history'
+      'stock_adjustments', 'move_history', 'notifications', 'system_settings',
+      'dashboard_widgets'
     ];
     
     const missingTables = expectedTables.filter(table => !tables.includes(table));

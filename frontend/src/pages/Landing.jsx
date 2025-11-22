@@ -12,7 +12,7 @@ export default function Landing() {
           {/* Logo Section */}
           <div className="navbar-brand">
             <div className="logo-placeholder">
-              <img src="./public/assets/logo.jpg" alt="StockShelf Logo" style={{width: '32px', height: '32px'}} />
+              <img src="/assets/logo.jpg" alt="StockShelf Logo" style={{width: '32px', height: '32px'}} />
             </div>
         <h1 className="brand-title">
               <span style={{color: '#4a90ff'}}>Stock</span>Shelf

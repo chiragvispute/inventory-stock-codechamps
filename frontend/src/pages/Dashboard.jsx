@@ -96,7 +96,7 @@ export default function Dashboard() {
           {/* Logo Section */}
           <div className="navbar-brand">
             <div className="logo-placeholder">
-              <img src="/./public/assests/logo.jpg" alt="StockShelf Logo" style={{width: '32px', height: '32px'}} />
+              <img src="/assests/logo.jpg" alt="StockShelf Logo" style={{width: '32px', height: '32px'}} />
             </div>
             <h1 className="brand-title">
               <span className="brand-stock">Stock</span>Shelf

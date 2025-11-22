@@ -8,8 +8,8 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const receipts = await sequelize.query(`
-      SELECT r.receipt_id, r.reference, r.schedule_date, r.operation_type, 
-             r.status, r.from_location, r.created_at, r.validated_at,
+      SELECT r.receipt_id, r.reference, r.schedule_date, 
+             r.status, r.created_at,
              s.name as supplier_name,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as to_location_name, w.name as warehouse_name
@@ -39,8 +39,8 @@ router.get('/:id', async (req, res) => {
     
     // Get receipt header
     const receiptQuery = `
-      SELECT r.receipt_id, r.reference, r.schedule_date, r.operation_type, 
-             r.status, r.from_location, r.created_at, r.validated_at,
+      SELECT r.receipt_id, r.reference, r.schedule_date, 
+             r.status, r.created_at,
              s.name as supplier_name, s.contact_person as supplier_contact,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as to_location_name, w.name as warehouse_name
@@ -101,10 +101,8 @@ router.post('/', async (req, res) => {
     const {
       reference,
       scheduleDate,
-      operationType,
       supplierId,
       responsibleUserId,
-      fromLocation,
       toLocationId,
       items
     } = req.body;
@@ -118,10 +116,10 @@ router.post('/', async (req, res) => {
     
     // Create receipt header
     const receiptQuery = `
-      INSERT INTO receipts (reference, schedule_date, operation_type, supplier_id, 
-                           responsible_user_id, from_location, to_location_id)
-      VALUES (:reference, :scheduleDate, :operationType, :supplierId, 
-              :responsibleUserId, :fromLocation, :toLocationId)
+      INSERT INTO receipts (reference, schedule_date, supplier_id, 
+                           responsible_user_id, to_location_id)
+      VALUES (:reference, :scheduleDate, :supplierId, 
+              :responsibleUserId, :toLocationId)
       RETURNING receipt_id, reference, created_at
     `;
     
@@ -129,10 +127,8 @@ router.post('/', async (req, res) => {
       replacements: {
         reference, 
         scheduleDate, 
-        operationType: operationType || 'purchase', 
         supplierId,
         responsibleUserId, 
-        fromLocation, 
         toLocationId
       },
       type: QueryTypes.SELECT
@@ -197,10 +193,9 @@ router.patch('/:id/status', async (req, res) => {
     
     const query = `
       UPDATE receipts 
-      SET status = :status, 
-          validated_at = CASE WHEN :status = 'validated' THEN CURRENT_TIMESTAMP ELSE validated_at END
+      SET status = :status
       WHERE receipt_id = :receiptId
-      RETURNING receipt_id, reference, status, validated_at
+      RETURNING receipt_id, reference, status
     `;
     
     const result = await sequelize.query(query, { replacements: { status, receiptId }, type: QueryTypes.SELECT });

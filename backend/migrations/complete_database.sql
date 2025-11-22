@@ -1,5 +1,10 @@
--- Create database tables based on ERD
--- Execute this file to create all tables for the inventory management system
+-- COMPLETE INVENTORY MANAGEMENT DATABASE SETUP
+-- Single file with all tables and sample data
+-- Execute this file to create the complete database structure with test data
+
+-- ==============================================
+-- TABLE CREATION SECTION
+-- ==============================================
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
@@ -99,7 +104,7 @@ CREATE TABLE IF NOT EXISTS customers (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Receipts table (simplified to match wireframes)
+-- Receipts table
 CREATE TABLE IF NOT EXISTS receipts (
     receipt_id SERIAL PRIMARY KEY,
     reference VARCHAR(100) UNIQUE NOT NULL,
@@ -121,7 +126,7 @@ CREATE TABLE IF NOT EXISTS receipt_items (
     unit_cost_at_receipt DECIMAL(12,4) DEFAULT 0.0000
 );
 
--- Delivery Orders table (simplified to match wireframes)
+-- Delivery Orders table
 CREATE TABLE IF NOT EXISTS delivery_orders (
     delivery_order_id SERIAL PRIMARY KEY,
     reference VARCHAR(100) UNIQUE NOT NULL,
@@ -186,7 +191,42 @@ CREATE TABLE IF NOT EXISTS move_history (
     description TEXT
 );
 
--- Create indexes for better performance
+-- Dashboard Tables
+CREATE TABLE IF NOT EXISTS notifications (
+    notification_id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    type VARCHAR(50) CHECK (type IN ('info', 'warning', 'error', 'success')),
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_id SERIAL PRIMARY KEY,
+    setting_key VARCHAR(100) UNIQUE NOT NULL,
+    setting_value TEXT,
+    description TEXT,
+    updated_by INTEGER REFERENCES users(user_id),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_widgets (
+    widget_id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+    widget_type VARCHAR(50) NOT NULL,
+    position_x INTEGER DEFAULT 0,
+    position_y INTEGER DEFAULT 0,
+    width INTEGER DEFAULT 1,
+    height INTEGER DEFAULT 1,
+    is_visible BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==============================================
+-- INDEXES SECTION
+-- ==============================================
+
 CREATE INDEX IF NOT EXISTS idx_users_login_id ON users(login_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_products_sku_code ON products(sku_code);
@@ -201,7 +241,10 @@ CREATE INDEX IF NOT EXISTS idx_move_history_product ON move_history(product_id);
 CREATE INDEX IF NOT EXISTS idx_move_history_transaction_ref ON move_history(transaction_ref);
 CREATE INDEX IF NOT EXISTS idx_move_history_timestamp ON move_history(move_timestamp);
 
--- Create triggers for updating timestamps
+-- ==============================================
+-- TRIGGERS SECTION
+-- ==============================================
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -247,78 +290,148 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_stock_levels_timestamp BEFORE UPDATE ON stock_levels
     FOR EACH ROW EXECUTE FUNCTION update_stock_level_timestamp();
 
--- Dashboard widgets/tiles configuration
-CREATE TABLE IF NOT EXISTS dashboard_widgets (
-    widget_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-    widget_type VARCHAR(50) NOT NULL, -- 'stock_summary', 'recent_receipts', 'pending_deliveries'
-    position_x INTEGER DEFAULT 0,
-    position_y INTEGER DEFAULT 0,
-    width INTEGER DEFAULT 1,
-    height INTEGER DEFAULT 1,
-    is_visible BOOLEAN DEFAULT TRUE,
-    configuration JSONB, -- Widget-specific settings
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- ==============================================
+-- SAMPLE DATA SECTION
+-- ==============================================
 
--- Reports configuration (for report generation shown in wireframes)
-CREATE TABLE IF NOT EXISTS report_templates (
-    template_id SERIAL PRIMARY KEY,
-    template_name VARCHAR(200) NOT NULL,
-    report_type VARCHAR(50) NOT NULL, -- 'stock_report', 'movement_report', 'receipt_report'
-    sql_query TEXT,
-    parameters JSONB,
-    created_by INTEGER REFERENCES users(user_id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Insert sample users
+INSERT INTO users (login_id, email, password, user_role, first_name, last_name, status) VALUES 
+('admin', 'admin@company.com', '$2b$10$rZdR8UgFl7hJ5FJzT5LJ/eoZQZLJOWfB8z8zGvPvN8fN8zPfN8z/', 'admin', 'John', 'Admin', 'active'),
+('manager1', 'manager@company.com', '$2b$10$rZdR8UgFl7hJ5FJzT5LJ/eoZQZLJOWfB8z8zGvPvN8fN8zPfN8z/', 'manager', 'Jane', 'Manager', 'active'),
+('operator1', 'operator@company.com', '$2b$10$rZdR8UgFl7hJ5FJzT5LJ/eoZQZLJOWfB8z8zGvPvN8fN8zPfN8z/', 'operator', 'Mike', 'Operator', 'active'),
+('viewer1', 'viewer@company.com', '$2b$10$rZdR8UgFl7hJ5FJzT5LJ/eoZQZLJOWfB8z8zGvPvN8fN8zPfN8z/', 'viewer', 'Sarah', 'Viewer', 'active')
+ON CONFLICT (login_id) DO NOTHING;
 
--- Notifications table (for dashboard notifications)
-CREATE TABLE IF NOT EXISTS notifications (
-    notification_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    message TEXT,
-    type VARCHAR(50) CHECK (type IN ('info', 'warning', 'error', 'success')),
-    is_read BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Insert sample warehouses
+INSERT INTO warehouses (name, short_code, address) VALUES 
+('Main Warehouse', 'WH001', '123 Industrial Blvd, City, State 12345'),
+('Secondary Storage', 'WH002', '456 Storage Ave, City, State 12346'),
+('Distribution Center', 'WH003', '789 Logistics Way, City, State 12347')
+ON CONFLICT (name) DO NOTHING;
 
--- System Settings table (for configuration)
-CREATE TABLE IF NOT EXISTS system_settings (
-    setting_id SERIAL PRIMARY KEY,
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
-    setting_value TEXT,
-    description TEXT,
-    updated_by INTEGER REFERENCES users(user_id),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Insert sample locations
+INSERT INTO locations (name, short_code, warehouse_id, description) VALUES 
+('Receiving Area', 'RCV', 1, 'Area for receiving incoming goods'),
+('Storage Zone A', 'STA', 1, 'Primary storage area for electronics'),
+('Storage Zone B', 'STB', 1, 'Secondary storage area for furniture'),
+('Picking Area', 'PCK', 1, 'Area for order picking and preparation'),
+('Bulk Storage', 'BLK', 2, 'Large item storage'),
+('North Receiving', 'NRC', 2, 'North side receiving dock'),
+('Quick Pick Zone', 'QPZ', 3, 'Fast-moving items storage'),
+('Overflow Storage', 'OVF', 3, 'Additional storage capacity')
+ON CONFLICT (warehouse_id, short_code) DO NOTHING;
 
--- Activity Log (for audit trail shown in dashboard)
-CREATE TABLE IF NOT EXISTS activity_log (
-    activity_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(user_id),
-    action VARCHAR(100) NOT NULL,
-    table_name VARCHAR(100),
-    record_id INTEGER,
-    old_values JSONB,
-    new_values JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Insert sample product categories
+INSERT INTO product_categories (name, description) VALUES 
+('Electronics', 'Electronic devices and components'),
+('Furniture', 'Office and home furniture'),
+('Supplies', 'General office and industrial supplies'),
+('Tools', 'Hand tools and equipment'),
+('Safety Equipment', 'Personal protective equipment and safety gear')
+ON CONFLICT (name) DO NOTHING;
 
--- Product Barcodes table (for scanning functionality)
-CREATE TABLE IF NOT EXISTS product_barcodes (
-    barcode_id SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products(product_id) ON DELETE CASCADE,
-    barcode VARCHAR(255) UNIQUE NOT NULL,
-    barcode_type VARCHAR(50) DEFAULT 'EAN13',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Insert sample products
+INSERT INTO products (name, sku_code, category_id, unit_of_measure, per_unit_cost, initial_stock) VALUES 
+('Laptop Computer', 'LAP-001', 1, 'Each', 799.99, 25),
+('Wireless Mouse', 'MSE-002', 1, 'Each', 29.99, 100),
+('Office Desk', 'DSK-001', 2, 'Each', 299.99, 15),
+('Office Chair', 'CHR-001', 2, 'Each', 199.99, 30),
+('Printer Paper', 'PPR-001', 3, 'Pack', 24.99, 200),
+('Blue Pens', 'PEN-001', 3, 'Box', 12.99, 150),
+('Screwdriver Set', 'SCR-001', 4, 'Set', 39.99, 50),
+('Safety Helmet', 'HLM-001', 5, 'Each', 45.99, 75),
+('Monitor 24inch', 'MON-001', 1, 'Each', 199.99, 40),
+('Keyboard', 'KEY-001', 1, 'Each', 49.99, 80)
+ON CONFLICT (sku_code) DO NOTHING;
 
--- Additional indexes for new tables
-CREATE INDEX IF NOT EXISTS idx_dashboard_widgets_user ON dashboard_widgets(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
-CREATE INDEX IF NOT EXISTS idx_activity_log_user ON activity_log(user_id);
-CREATE INDEX IF NOT EXISTS idx_activity_log_table ON activity_log(table_name);
-CREATE INDEX IF NOT EXISTS idx_product_barcodes_product ON product_barcodes(product_id);
-CREATE INDEX IF NOT EXISTS idx_product_barcodes_barcode ON product_barcodes(barcode);
+-- Insert sample suppliers
+INSERT INTO suppliers (name, contact_person, email, phone, address) VALUES 
+('TechCorp Solutions', 'Alice Johnson', 'alice@techcorp.com', '+1-555-0101', '100 Tech Street, Silicon Valley, CA 94000'),
+('Furniture Plus', 'Bob Smith', 'bob@furnitureplus.com', '+1-555-0102', '200 Furniture Ave, Grand Rapids, MI 49503'),
+('Office Supplies Inc', 'Carol Davis', 'carol@officesupplies.com', '+1-555-0103', '300 Supply Road, Chicago, IL 60601'),
+('Industrial Tools Ltd', 'David Wilson', 'david@industrialtools.com', '+1-555-0104', '400 Tool Lane, Detroit, MI 48201'),
+('Safety First Co', 'Eva Brown', 'eva@safetyfirst.com', '+1-555-0105', '500 Safety Blvd, Houston, TX 77001')
+ON CONFLICT (name) DO NOTHING;
+
+-- Insert sample customers
+INSERT INTO customers (name, contact_person, email, phone, address) VALUES 
+('ABC Corporation', 'Frank Miller', 'frank@abccorp.com', '+1-555-0201', '600 Business Pkwy, New York, NY 10001'),
+('XYZ Enterprise', 'Grace Lee', 'grace@xyzent.com', '+1-555-0202', '700 Enterprise Dr, Los Angeles, CA 90001'),
+('Global Industries', 'Henry Taylor', 'henry@globalind.com', '+1-555-0203', '800 Global Way, Miami, FL 33101'),
+('Metro Solutions', 'Ivy Chen', 'ivy@metrosol.com', '+1-555-0204', '900 Metro St, Seattle, WA 98101'),
+('Prime Manufacturing', 'Jack Roberts', 'jack@primemfg.com', '+1-555-0205', '1000 Prime Ave, Portland, OR 97201')
+ON CONFLICT DO NOTHING;
+
+-- Insert sample stock levels
+INSERT INTO stock_levels (product_id, location_id, quantity_on_hand, quantity_free_to_use, per_unit_cost, min_stock_level, max_stock_level) VALUES 
+(1, 2, 25.0000, 20.0000, 799.99, 10.0000, 50.0000),
+(2, 2, 100.0000, 95.0000, 29.99, 25.0000, 200.0000),
+(3, 3, 15.0000, 12.0000, 299.99, 5.0000, 30.0000),
+(4, 3, 30.0000, 28.0000, 199.99, 10.0000, 50.0000),
+(5, 2, 200.0000, 190.0000, 24.99, 50.0000, 500.0000),
+(6, 2, 150.0000, 140.0000, 12.99, 30.0000, 300.0000),
+(7, 4, 50.0000, 45.0000, 39.99, 15.0000, 100.0000),
+(8, 4, 75.0000, 70.0000, 45.99, 20.0000, 150.0000),
+(9, 2, 40.0000, 35.0000, 199.99, 15.0000, 80.0000),
+(10, 2, 80.0000, 75.0000, 49.99, 20.0000, 160.0000)
+ON CONFLICT (product_id, location_id) DO NOTHING;
+
+-- Insert sample receipts
+INSERT INTO receipts (reference, schedule_date, status, supplier_id, responsible_user_id, to_location_id) VALUES 
+('REC-2024-001', '2024-11-15', 'done', 1, 1, 1),
+('REC-2024-002', '2024-11-18', 'confirmed', 2, 2, 1),
+('REC-2024-003', '2024-11-20', 'draft', 3, 1, 1),
+('REC-2024-004', '2024-11-22', 'confirmed', 1, 2, 1),
+('REC-2024-005', '2024-11-25', 'draft', 4, 1, 1),
+('REC-2024-006', '2024-11-28', 'done', 5, 2, 1)
+ON CONFLICT (reference) DO NOTHING;
+
+-- Insert sample delivery orders
+INSERT INTO delivery_orders (reference, schedule_date, status, customer_id, responsible_user_id, from_location_id) VALUES 
+('DEL-2024-001', '2024-11-16', 'done', 1, 1, 4),
+('DEL-2024-002', '2024-11-19', 'confirmed', 2, 2, 4),
+('DEL-2024-003', '2024-11-21', 'draft', 3, 1, 4),
+('DEL-2024-004', '2024-11-23', 'confirmed', 4, 2, 4),
+('DEL-2024-005', '2024-11-26', 'draft', 5, 1, 4),
+('DEL-2024-006', '2024-11-29', 'done', 1, 2, 4)
+ON CONFLICT (reference) DO NOTHING;
+
+-- Insert sample move history
+INSERT INTO move_history (transaction_ref, transaction_type, product_id, from_location_id, to_location_id, quantity_change, unit_of_measure, responsible_user_id, description) VALUES 
+('REC-2024-001', 'receipt', 1, NULL, 2, 10.0000, 'Each', 1, 'Received laptops from TechCorp Solutions'),
+('REC-2024-001', 'receipt', 2, NULL, 2, 50.0000, 'Each', 1, 'Received wireless mice from TechCorp Solutions'),
+('DEL-2024-001', 'delivery', 1, 2, NULL, -5.0000, 'Each', 1, 'Delivered laptops to ABC Corporation'),
+('DEL-2024-001', 'delivery', 2, 2, NULL, -20.0000, 'Each', 1, 'Delivered mice to ABC Corporation'),
+('TRF-001', 'transfer', 3, 3, 5, 5.0000, 'Each', 2, 'Transferred desks to bulk storage'),
+('ADJ-001', 'adjustment', 5, 2, 2, 10.0000, 'Pack', 1, 'Stock adjustment - found additional paper'),
+('REC-2024-002', 'receipt', 9, NULL, 2, 20.0000, 'Each', 2, 'Received monitors from TechCorp Solutions'),
+('DEL-2024-002', 'delivery', 9, 2, NULL, -5.0000, 'Each', 2, 'Delivered monitors to XYZ Enterprise')
+ON CONFLICT DO NOTHING;
+
+-- Insert sample notifications
+INSERT INTO notifications (user_id, title, message, type, is_read) VALUES 
+(1, 'Low Stock Alert', 'Office Desk (DSK-001) is running low. Current stock: 15 units', 'warning', false),
+(1, 'Receipt Confirmed', 'Receipt REC-2024-004 has been confirmed', 'success', false),
+(2, 'Delivery Scheduled', 'Delivery DEL-2024-005 is scheduled for tomorrow', 'info', true),
+(2, 'System Update', 'Inventory system will be updated tonight', 'info', true),
+(1, 'Critical Stock', 'Safety Helmet (HLM-001) stock is critical', 'error', false)
+ON CONFLICT DO NOTHING;
+
+-- Insert sample system settings
+INSERT INTO system_settings (setting_key, setting_value, description, updated_by) VALUES 
+('company_name', 'StockShelf Inventory', 'Company name for reports', 1),
+('low_stock_threshold', '10', 'Default low stock threshold percentage', 1),
+('auto_reorder_enabled', 'true', 'Enable automatic reorder notifications', 1),
+('currency_symbol', '$', 'Currency symbol for pricing', 1),
+('timezone', 'UTC', 'System timezone setting', 1)
+ON CONFLICT (setting_key) DO NOTHING;
+
+-- Insert sample dashboard widgets
+INSERT INTO dashboard_widgets (user_id, widget_type, position_x, position_y, width, height, is_visible) VALUES 
+(1, 'stock_summary', 0, 0, 2, 1, true),
+(1, 'recent_receipts', 2, 0, 2, 1, true),
+(1, 'pending_deliveries', 0, 1, 2, 1, true),
+(1, 'low_stock_alerts', 2, 1, 2, 1, true),
+(2, 'stock_summary', 0, 0, 2, 1, true),
+(2, 'recent_movements', 2, 0, 2, 1, true)
+ON CONFLICT DO NOTHING;
