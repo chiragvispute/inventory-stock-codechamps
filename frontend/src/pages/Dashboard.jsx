@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import '../styles/Dashboard.css'
 import ReceiptList from './ReceiptList'
 import DeliveryList from './DeliveryList'
@@ -7,6 +8,12 @@ import Stock from './Stock'
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [currentPage, setCurrentPage] = useState('dashboard')
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    navigate('/login')
+  }
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard' },
@@ -34,6 +41,7 @@ export default function Dashboard() {
                   </button>
                 ))}
               </nav>
+              <button className="btn-logout" onClick={handleLogout}>Logout</button>
             </div>
           </header>
 
