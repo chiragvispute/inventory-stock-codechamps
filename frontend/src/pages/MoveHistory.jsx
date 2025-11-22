@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import '../styles/MoveHistory.css'
+import KanbanView from '../components/KanbanView'
+import '../styles/KanbanView.css'
 
 export default function MoveHistory() {
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState('LIST') // LIST or KANBAN
+  const [viewMode, setViewMode] = useState('table') // 'table' or 'kanban'
   const [filteredMoves, setFilteredMoves] = useState([])
   const [moves, setMoves] = useState([])
   const [loading, setLoading] = useState(true)
@@ -194,6 +196,83 @@ export default function MoveHistory() {
     }
   }
 
+  // Categorize moves for Kanban view
+  const categorizeMovesForKanban = () => {
+    const categorizedMoves = []
+
+    filteredMoves.forEach(move => {
+      let category = 'Completed'
+      
+      switch(move.status?.toLowerCase()) {
+        case 'pending':
+          category = 'Pending'
+          break
+        case 'ready':
+          category = 'In Progress'
+          break
+        case 'completed':
+        default:
+          category = 'Completed'
+          break
+      }
+
+      categorizedMoves.push({
+        ...move,
+        category: category,
+        status: category, // For compatibility with KanbanView
+        id: move.id || move.reference
+      })
+    })
+
+    return categorizedMoves
+  }
+
+  // Define Kanban columns for moves
+  const getMoveKanbanColumns = () => [
+    { id: 'Pending', title: 'Pending', color: '#6b7280' },
+    { id: 'In Progress', title: 'In Progress', color: '#3b82f6' },
+    { id: 'Completed', title: 'Completed', color: '#10b981' }
+  ]
+
+  const renderMoveKanbanItem = (move) => (
+    <div className={`kanban-item move-kanban-item ${
+      move.move_type === 'IN' ? 'move-in' : 
+      move.move_type === 'OUT' ? 'move-out' : 'move-transfer'
+    }`}>
+      <div className="kanban-item-content">
+        <h4>{move.reference}</h4>
+        <p>{move.product_name || 'Product Movement'}</p>
+        <div className={`move-type ${move.move_type?.toLowerCase() || 'transfer'}`}>
+          {move.move_type || 'TRANSFER'}
+        </div>
+        <div className="quantity">Qty: {move.quantity}</div>
+        <div className="value">From: {move.from}</div>
+        <div className="value">To: {move.to}</div>
+        <div style={{fontSize: '12px', color: '#666', marginTop: '8px'}}>
+          {move.date} • {move.contact}
+        </div>
+      </div>
+    </div>
+  )
+
+  const handleKanbanItemMove = (itemId, fromColumn, toColumn) => {
+    console.log(`Move item ${itemId} from ${fromColumn} to ${toColumn}`)
+    // Here you would typically update the item status via API
+    // For now, we'll just update the local state
+    setFilteredMoves(prevMoves => 
+      prevMoves.map(move => {
+        if (move.id.toString() === itemId) {
+          let newStatus = 'completed'
+          if (toColumn === 'Pending') newStatus = 'pending'
+          else if (toColumn === 'In Progress') newStatus = 'ready'
+          
+          return { ...move, status: newStatus }
+        }
+        return move
+      })
+    )
+  }
+
   return (
     <div className="move-history-page">
       <header className="move-history-header">
@@ -211,10 +290,33 @@ export default function MoveHistory() {
         
         <div className="view-selector">
           <button 
-            className={`view-btn ${viewMode === 'LIST' ? 'active' : ''}`}
-            onClick={() => setViewMode('LIST')}
+            className={`view-btn ${viewMode === 'table' ? 'active' : ''}`}
+            onClick={() => setViewMode('table')}
+            style={{
+              padding: '0.5rem 1rem',
+              marginRight: '0.5rem',
+              backgroundColor: viewMode === 'table' ? '#022355' : '#f8f9fa',
+              color: viewMode === 'table' ? 'white' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
           >
-            VIEW
+            📊 Table
+          </button>
+          <button 
+            className={`view-btn ${viewMode === 'kanban' ? 'active' : ''}`}
+            onClick={() => setViewMode('kanban')}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: viewMode === 'kanban' ? '#022355' : '#f8f9fa',
+              color: viewMode === 'kanban' ? 'white' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            📋 Kanban
           </button>
         </div>
       </header>
@@ -233,7 +335,7 @@ export default function MoveHistory() {
             />
             <div className="toolbar-actions">
               <button className="btn-search" onClick={handleSearch}>🔍</button>
-              <button className="btn-list-view" onClick={() => setViewMode('LIST')}>📋</button>
+              <button className="btn-list-view" onClick={() => setViewMode('table')}>📋</button>
               <button className="btn-print">🖨️</button>
             </div>
           </div>
@@ -259,6 +361,13 @@ export default function MoveHistory() {
             <div className="loading-state">
               <p>Loading move history...</p>
             </div>
+          ) : viewMode === 'kanban' ? (
+            <KanbanView
+              data={categorizeMovesForKanban()}
+              columns={getMoveKanbanColumns()}
+              renderItem={renderMoveKanbanItem}
+              onItemMove={handleKanbanItemMove}
+            />
           ) : (
             <table className="move-history-table">
               <thead>

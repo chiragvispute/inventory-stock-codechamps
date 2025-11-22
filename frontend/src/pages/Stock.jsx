@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import '../styles/Stock.css'
 import StockEditModal from '../components/StockEditModal'
+import KanbanView from '../components/KanbanView'
+import '../styles/KanbanView.css'
 
 export default function Stock() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -10,6 +12,7 @@ export default function Stock() {
   const [selectedStock, setSelectedStock] = useState(null)
   const [lastUpdate, setLastUpdate] = useState(Date.now())
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [viewMode, setViewMode] = useState('table') // 'table' or 'kanban'
 
   // Fetch stock data from backend
   useEffect(() => {
@@ -181,6 +184,69 @@ export default function Stock() {
     alert('Add stock functionality would open a form to create new products and set initial stock levels. This requires product and location data from the backend.')
   }
 
+  // Categorize stocks for Kanban view
+  const categorizeStocksForKanban = () => {
+    const categorizedStocks = []
+
+    stocks.forEach(stock => {
+      const onHand = stock.quantity_on_hand || stock.onHand || 0
+      const minStock = stock.min_stock_level || stock.minStock || 0
+      let category = 'In Stock'
+
+      if (onHand === 0) {
+        category = 'Out of Stock'
+      } else if (onHand <= minStock) {
+        category = 'Low Stock'
+      }
+
+      categorizedStocks.push({
+        ...stock,
+        category: category,
+        status: category, // For compatibility with KanbanView
+        id: stock.id || `${stock.product_id}-${stock.location_id}`
+      })
+    })
+
+    return categorizedStocks
+  }
+
+  // Define Kanban columns
+  const getKanbanColumns = () => [
+    { id: 'In Stock', title: 'In Stock', color: '#10b981' },
+    { id: 'Low Stock', title: 'Low Stock', color: '#f59e0b' },
+    { id: 'Out of Stock', title: 'Out of Stock', color: '#ef4444' }
+  ]
+
+  const renderStockKanbanItem = (stock) => (
+    <div className={`kanban-item stock-kanban-item ${
+      stock.quantity_on_hand === 0 ? 'out-of-stock' : 
+      stock.quantity_on_hand <= (stock.min_stock_level || 0) ? 'low-stock' : 'in-stock'
+    }`}>
+      <div className="kanban-item-content">
+        <h4>{stock.product_name || stock.product}</h4>
+        <p>{stock.sku_code || stock.sku}</p>
+        <div className="stock-level">
+          {stock.quantity_on_hand || stock.onHand} {stock.unit_of_measure || stock.unitOfMeasure}
+        </div>
+        <div className="quantity">Qty: {stock.quantity_on_hand || stock.onHand}</div>
+        <div className="value">Cost: {stock.per_unit_cost || stock.perUnitCost} Rs</div>
+        <div className={`stock-status ${
+          stock.quantity_on_hand === 0 ? 'out-of-stock' : 
+          stock.quantity_on_hand <= (stock.min_stock_level || 0) ? 'low-stock' : 'in-stock'
+        }`}>
+          {stock.quantity_on_hand === 0 ? 'Out of Stock' : 
+           stock.quantity_on_hand <= (stock.min_stock_level || 0) ? 'Low Stock' : 'In Stock'}
+        </div>
+      </div>
+    </div>
+  )
+
+  const handleKanbanItemMove = (itemId, fromColumn, toColumn) => {
+    // For stock items, we don't actually move them between columns
+    // as the column is determined by stock levels, not manual categorization
+    console.log(`Stock item ${itemId} would need stock level adjustment to move from ${fromColumn} to ${toColumn}`)
+  }
+
   const handleDeleteStock = async (stockId, productId, locationId) => {
     if (!confirm('Are you sure you want to delete this stock item?')) return
     
@@ -254,6 +320,38 @@ export default function Stock() {
           />
         </div>
         <div className="toolbar-controls">
+          <div className="view-toggle" style={{marginRight: '1rem'}}>
+            <button 
+              className={`btn-view ${viewMode === 'table' ? 'active' : ''}`}
+              onClick={() => setViewMode('table')}
+              style={{
+                padding: '0.5rem 1rem',
+                marginRight: '0.5rem',
+                backgroundColor: viewMode === 'table' ? '#022355' : '#f8f9fa',
+                color: viewMode === 'table' ? 'white' : '#333',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              📊 Table
+            </button>
+            <button 
+              className={`btn-view ${viewMode === 'kanban' ? 'active' : ''}`}
+              onClick={() => setViewMode('kanban')}
+              style={{
+                padding: '0.5rem 1rem',
+                marginRight: '1rem',
+                backgroundColor: viewMode === 'kanban' ? '#022355' : '#f8f9fa',
+                color: viewMode === 'kanban' ? 'white' : '#333',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              📋 Kanban
+            </button>
+          </div>
           <label style={{display: 'flex', alignItems: 'center', marginRight: '1rem'}}>
             <input
               type="checkbox"
@@ -296,6 +394,21 @@ export default function Stock() {
 
       {loading ? (
         <div style={{textAlign: 'center', padding: '2rem'}}>Loading stock data...</div>
+      ) : viewMode === 'kanban' ? (
+        <>
+          {/* Debug info */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{padding: '10px', backgroundColor: '#f0f0f0', margin: '10px 0', fontSize: '12px'}}>
+              Debug: Stocks count: {stocks.length}, Categorized: {categorizeStocksForKanban().length}
+            </div>
+          )}
+          <KanbanView
+            data={categorizeStocksForKanban()}
+            columns={getKanbanColumns()}
+            renderItem={renderStockKanbanItem}
+            onItemMove={handleKanbanItemMove}
+          />
+        </>
       ) : (
         <div className="stock-table-wrapper">
           <table className="stock-table">

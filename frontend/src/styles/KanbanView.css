@@ -1,0 +1,258 @@
+/* Kanban View Styles */
+.kanban-view {
+  width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  padding: 20px 0;
+}
+
+.kanban-columns {
+  display: flex;
+  gap: 24px;
+  min-height: 600px;
+  padding: 0 20px;
+}
+
+.kanban-column {
+  min-width: 300px;
+  flex: 1;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.kanban-column.drag-over {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.kanban-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.kanban-column-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.item-count {
+  background-color: #6b7280;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.kanban-column-content {
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kanban-item {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: grab;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.kanban-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-color: #d1d5db;
+}
+
+.kanban-item.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+  cursor: grabbing;
+}
+
+.kanban-item-content h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 8px 0;
+}
+
+.kanban-item-content p {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  line-height: 1.4;
+}
+
+.kanban-item-content .quantity,
+.kanban-item-content .value {
+  display: inline-block;
+  background-color: #f3f4f6;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.kanban-item-content .quantity {
+  background-color: #ddd6fe;
+  color: #7c3aed;
+}
+
+.kanban-item-content .value {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.kanban-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  background-color: #ffffff;
+}
+
+.kanban-empty p {
+  color: #9ca3af;
+  font-size: 14px;
+  font-style: italic;
+  margin: 0;
+}
+
+/* Stock-specific Kanban styling */
+.stock-kanban-item {
+  border-left: 4px solid #3b82f6;
+}
+
+.stock-kanban-item.low-stock {
+  border-left-color: #ef4444;
+}
+
+.stock-kanban-item.out-of-stock {
+  border-left-color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.stock-kanban-item.in-stock {
+  border-left-color: #10b981;
+}
+
+.stock-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-top: 8px;
+}
+
+.stock-status.in-stock {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.stock-status.low-stock {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.stock-status.out-of-stock {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.stock-level {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 8px 0;
+}
+
+/* Move History Kanban styling */
+.move-kanban-item {
+  border-left: 4px solid #6366f1;
+}
+
+.move-kanban-item.move-in {
+  border-left-color: #10b981;
+}
+
+.move-kanban-item.move-out {
+  border-left-color: #f59e0b;
+}
+
+.move-kanban-item.move-transfer {
+  border-left-color: #8b5cf6;
+}
+
+.move-type {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.move-type.in {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.move-type.out {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.move-type.transfer {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .kanban-columns {
+    gap: 16px;
+    padding: 0 16px;
+  }
+  
+  .kanban-column {
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .kanban-columns {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .kanban-column {
+    min-width: unset;
+    width: 100%;
+  }
+  
+  .kanban-column-content {
+    min-height: 300px;
+  }
+}
