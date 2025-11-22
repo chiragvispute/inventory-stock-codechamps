@@ -1,8 +1,12 @@
 import express from 'express';
 import { pool, sequelize } from '../db.js';
 import { QueryTypes } from 'sequelize';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Apply authentication middleware to all routes
+router.use(authenticateToken);
 
 // Get all delivery orders
 router.get('/', async (req, res) => {

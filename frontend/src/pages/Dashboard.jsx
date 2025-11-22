@@ -219,7 +219,15 @@ export default function Dashboard() {
                 >
                   <div className="card-header">
                     <h2>Receipt</h2>
-                    <button className="btn-icon" onClick={(e) => e.stopPropagation()}>+</button>
+                    <button 
+                      className="btn-icon" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate('/create-receipt')
+                      }}
+                    >
+                      +
+                    </button>
                     {autoRefresh && (
                       <div style={{
                         position: 'absolute',
@@ -281,7 +289,15 @@ export default function Dashboard() {
                 >
                   <div className="card-header">
                     <h2>Delivery</h2>
-                    <button className="btn-icon" onClick={(e) => e.stopPropagation()}>+</button>
+                    <button 
+                      className="btn-icon" 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        alert('Create Delivery form coming soon!')
+                      }}
+                    >
+                      +
+                    </button>
                     {autoRefresh && (
                       <div style={{
                         position: 'absolute',

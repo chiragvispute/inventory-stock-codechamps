@@ -84,7 +84,10 @@ export default function ReceiptList({ onBack }) {
   }
 
   const handleNewReceipt = () => {
-    setSelectedReceiptId(null)
+    // Create a new receipt reference
+    const newReference = `REC-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
+    // Set new receipt ID and switch to detail view
+    setSelectedReceiptId(newReference)
     setCurrentPage('detail')
   }
 

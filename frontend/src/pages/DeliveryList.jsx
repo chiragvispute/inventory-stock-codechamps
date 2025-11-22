@@ -84,7 +84,10 @@ export default function DeliveryList({ onBack }) {
   }
 
   const handleNewDelivery = () => {
-    setSelectedDeliveryId(null)
+    // Create a new delivery reference  
+    const newReference = `DEL-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`
+    // Set new delivery ID and switch to detail view
+    setSelectedDeliveryId(newReference)
     setCurrentPage('detail')
   }
 

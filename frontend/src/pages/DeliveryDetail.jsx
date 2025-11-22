@@ -35,7 +35,24 @@ export default function DeliveryDetail({ onBack, deliveryId = null }) {
 
   useEffect(() => {
     if (deliveryId) {
-      fetchDeliveryDetail()
+      // Check if this is a new auto-generated reference
+      const isNewReference = typeof deliveryId === 'string' && deliveryId.match(/^DEL-\d{4}-\d{6}$/)
+      
+      if (isNewReference) {
+        // Initialize new delivery with the generated reference
+        setDelivery({
+          id: deliveryId,
+          deliverTo: '',
+          responsible: '',
+          scheduledDate: new Date().toISOString().split('T')[0],
+          status: 'draft',
+          products: []
+        })
+        setProducts([{ id: 1, name: '', quantity: '', orderedQuantity: '' }])
+      } else {
+        // Fetch existing delivery
+        fetchDeliveryDetail()
+      }
     } else {
       // Initialize new delivery
       setDelivery({
@@ -153,9 +170,74 @@ export default function DeliveryDetail({ onBack, deliveryId = null }) {
   const handleContactSave = (updatedContact) => {
     // Update the contact data with changes
     setContactData(updatedContact)
-    // In future, this will call API to update the database
+    // Update the deliverTo field with the contact name
+    setDelivery(prev => ({
+      ...prev,
+      deliverTo: updatedContact.name || updatedContact.company || 'Unknown Customer'
+    }))
     console.log('Contact updated:', updatedContact)
     alert('Contact details updated successfully!')
+  }
+
+  const handleSaveDelivery = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      
+      // Prepare the delivery data for API
+      const deliveryData = {
+        reference: delivery.id,
+        scheduleDate: delivery.scheduledDate,
+        customerId: contactData.id || null, // Use contact ID if available
+        fromLocationId: 1, // Default to first location (you might want to make this configurable)
+        toLocation: delivery.deliverTo,
+        items: products.filter(p => p.name).map(product => ({
+          productId: product.productId || null,
+          quantityOrdered: parseFloat(product.orderedQuantity) || 0,
+          quantityPicked: parseFloat(product.quantity) || 0
+        }))
+      }
+      
+      // Check if this is a new delivery (starts with DEL-YYYY) or existing one
+      const isNewDelivery = delivery.id.match(/^DEL-\d{4}-\d{6}$/) || delivery.id === 'WH/OUT/NEW'
+      
+      let response
+      if (isNewDelivery) {
+        // Create new delivery
+        response = await fetch('http://localhost:5001/api/deliveries', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(deliveryData)
+        })
+      } else {
+        // Update existing delivery (you might want to implement PUT endpoint)
+        throw new Error('Update functionality not yet implemented')
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save delivery')
+      }
+      
+      const savedDelivery = await response.json()
+      alert('Delivery saved successfully!')
+      
+      // Update the delivery with the saved data
+      if (savedDelivery.delivery_order_id) {
+        setDelivery(prev => ({ ...prev, id: savedDelivery.reference }))
+      }
+      
+      setError('')
+    } catch (err) {
+      console.error('Error saving delivery:', err)
+      setError(err.message || 'Failed to save delivery. Please try again.')
+      alert('Failed to save delivery: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -179,6 +261,9 @@ export default function DeliveryDetail({ onBack, deliveryId = null }) {
                 <>
                   <button className="btn btn-secondary">Print</button>
                   <button className="btn btn-secondary">Cancel</button>
+                  <button className="btn btn-success" onClick={handleSaveDelivery} disabled={loading}>
+                    {loading ? 'Saving...' : 'Save Delivery'}
+                  </button>
                   <button className="btn btn-primary" onClick={handleMarkAsReady}>Mark as Todo</button>
                 </>
               )}
@@ -211,13 +296,23 @@ export default function DeliveryDetail({ onBack, deliveryId = null }) {
             <div className="form-section">
               <div className="form-group">
                 <label>Deliver To</label>
-                <button
-                  type="button"
-                  className="contact-button"
-                  onClick={() => setSelectedContact(contactData)}
-                >
-                  {delivery.deliverTo}
-                </button>
+                <div style={{display: 'flex', gap: '0.5rem'}}>
+                  <input
+                    type="text"
+                    placeholder="Enter customer name"
+                    value={delivery.deliverTo}
+                    onChange={(e) => handleInputChange('deliverTo', e.target.value)}
+                    style={{flex: 1}}
+                  />
+                  <button
+                    type="button"
+                    className="contact-button"
+                    onClick={() => setSelectedContact(contactData)}
+                    style={{padding: '0.5rem 1rem', whiteSpace: 'nowrap'}}
+                  >
+                    Contact Details
+                  </button>
+                </div>
               </div>
 
               <div className="form-group">
