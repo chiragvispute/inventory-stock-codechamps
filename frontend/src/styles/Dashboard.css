@@ -15,6 +15,9 @@
   max-width: 1400px;
   margin: 0 auto;
   padding: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .dashboard-header h1 {
@@ -23,8 +26,25 @@
   color: #1f2937;
   padding: 24px 40px;
   margin: 0;
-  border-bottom: 2px solid #3b82f6;
+  border-bottom: none;
   letter-spacing: -0.5px;
+}
+
+.btn-logout {
+  padding: 10px 20px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin-right: 24px;
+}
+
+.btn-logout:hover {
+  background-color: #dc2626;
 }
 
 /* Tabs Navigation */
@@ -103,6 +123,8 @@
   padding: 0;
   transition: all 0.25s ease;
   overflow: hidden;
+  cursor: pointer;
+  text-align: left;
 }
 
 .card:hover {
