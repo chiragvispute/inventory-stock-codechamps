@@ -103,6 +103,8 @@
   padding: 0;
   transition: all 0.25s ease;
   overflow: hidden;
+  cursor: pointer;
+  text-align: left;
 }
 
 .card:hover {
