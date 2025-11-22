@@ -7,6 +7,7 @@ const router = express.Router();
 // Get move history with filters
 router.get('/', async (req, res) => {
   try {
+    console.log('=== Move History API Called ===');
     const { 
       productId, 
       locationId, 
@@ -17,104 +18,42 @@ router.get('/', async (req, res) => {
       offset = 0 
     } = req.query;
     
+    console.log('Query params:', { limit, offset });
+    
+    // Build query with proper JOINs for frontend format
     let query = `
       SELECT mh.move_id, mh.transaction_ref, mh.transaction_type, 
              mh.quantity_change, mh.unit_of_measure, mh.move_timestamp, 
              mh.description,
-             p.name as product_name, p.sku_code,
-             fl.name as from_location_name, fw.name as from_warehouse_name,
-             tl.name as to_location_name, tw.name as to_warehouse_name,
-             u.first_name || ' ' || u.last_name as responsible_user
+             COALESCE(p.name, 'Unknown Product') as product_name, 
+             COALESCE(p.sku_code, 'N/A') as sku_code,
+             COALESCE(fl.name, 'External') as from_location_name, 
+             COALESCE(fw.name, 'External') as from_warehouse_name,
+             COALESCE(tl.name, 'External') as to_location_name, 
+             COALESCE(tw.name, 'External') as to_warehouse_name,
+             COALESCE(u.first_name || ' ' || u.last_name, 'System') as responsible_user
       FROM move_history mh
-      JOIN products p ON mh.product_id = p.product_id
+      LEFT JOIN products p ON mh.product_id = p.product_id
       LEFT JOIN locations fl ON mh.from_location_id = fl.location_id
       LEFT JOIN warehouses fw ON fl.warehouse_id = fw.warehouse_id
       LEFT JOIN locations tl ON mh.to_location_id = tl.location_id
       LEFT JOIN warehouses tw ON tl.warehouse_id = tw.warehouse_id
-      JOIN users u ON mh.responsible_user_id = u.user_id
-      WHERE 1=1
+      LEFT JOIN users u ON mh.responsible_user_id = u.user_id
+      ORDER BY mh.move_timestamp DESC
+      LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}
     `;
     
-    const params = [];
-    let paramCount = 1;
+    console.log('Executing query with JOINs...');
+    const result = await sequelize.query(query, { type: QueryTypes.SELECT });
+    console.log('Query result sample:', result[0]);
     
-    if (productId) {
-      query += ` AND mh.product_id = $${paramCount}`;
-      params.push(parseInt(productId));
-      paramCount++;
-    }
+    // Get total count
+    const countResult = await sequelize.query(
+      'SELECT COUNT(*) as total FROM move_history', 
+      { type: QueryTypes.SELECT }
+    );
     
-    if (locationId) {
-      query += ` AND (mh.from_location_id = $${paramCount} OR mh.to_location_id = $${paramCount})`;
-      params.push(parseInt(locationId));
-      paramCount++;
-    }
-    
-    if (transactionType) {
-      query += ` AND mh.transaction_type = $${paramCount}`;
-      params.push(transactionType);
-      paramCount++;
-    }
-    
-    if (startDate) {
-      query += ` AND mh.move_timestamp >= $${paramCount}`;
-      params.push(startDate);
-      paramCount++;
-    }
-    
-    if (endDate) {
-      query += ` AND mh.move_timestamp <= $${paramCount}`;
-      params.push(endDate);
-      paramCount++;
-    }
-    
-    query += ` ORDER BY mh.move_timestamp DESC`;
-    query += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
-    
-    const result = await sequelize.query(query, { replacements: params, type: QueryTypes.SELECT });
-    
-    // Get total count for pagination
-    let countQuery = `
-      SELECT COUNT(*) as total
-      FROM move_history mh
-      WHERE 1=1
-    `;
-    
-    const countParams = [];
-    let countParamCount = 1;
-    
-    if (productId) {
-      countQuery += ` AND mh.product_id = $${countParamCount}`;
-      countParams.push(parseInt(productId));
-      countParamCount++;
-    }
-    
-    if (locationId) {
-      countQuery += ` AND (mh.from_location_id = $${countParamCount} OR mh.to_location_id = $${countParamCount})`;
-      countParams.push(parseInt(locationId));
-      countParamCount++;
-    }
-    
-    if (transactionType) {
-      countQuery += ` AND mh.transaction_type = $${countParamCount}`;
-      countParams.push(transactionType);
-      countParamCount++;
-    }
-    
-    if (startDate) {
-      countQuery += ` AND mh.move_timestamp >= $${countParamCount}`;
-      countParams.push(startDate);
-      countParamCount++;
-    }
-    
-    if (endDate) {
-      countQuery += ` AND mh.move_timestamp <= $${countParamCount}`;
-      countParams.push(endDate);
-      countParamCount++;
-    }
-    
-    const countResult = await sequelize.query(countQuery, { replacements: countParams, type: QueryTypes.SELECT });
+    console.log('Returning response with', result.length, 'records');
     
     res.json({
       moves: result,
@@ -125,7 +64,10 @@ router.get('/', async (req, res) => {
     
   } catch (error) {
     console.error('Error fetching move history:', error);
-    res.status(500).json({ error: 'Failed to fetch move history' });
+    res.status(500).json({ 
+      error: 'Failed to fetch move history',
+      details: error.message 
+    });
   }
 });
 

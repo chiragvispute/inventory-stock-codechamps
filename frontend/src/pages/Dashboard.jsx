@@ -4,6 +4,8 @@ import '../styles/Dashboard.css'
 import ReceiptList from './ReceiptList'
 import DeliveryList from './DeliveryList'
 import Stock from './Stock'
+import MoveHistory from './MoveHistory'
+import Footer from '../components/Footer'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -88,64 +90,62 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard">
+      {/* New Main Navbar */}
+      <nav className="main-navbar">
+        <div className="navbar-content">
+          {/* Logo Section */}
+          <div className="navbar-brand">
+            <div className="logo-placeholder">
+              {/* Place your logo here */}
+              <span className="logo-text">S</span>
+            </div>
+            <h1 className="brand-title">
+              <span className="brand-stock">Stock</span>Shelf
+            </h1>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="navbar-tabs">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                className={`navbar-tab ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <span className="tab-label">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Controls Section */}
+          <div className="navbar-controls">
+            <label className="auto-refresh-control">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+              />
+              Auto-refresh
+            </label>
+            <button 
+              className="btn-refresh" 
+              onClick={fetchDashboardData}
+              disabled={loading}
+              title="Refresh data manually"
+            >
+              ↻
+            </button>
+            <button className="btn-logout" onClick={handleLogout}>
+              Logout
+            </button>
+          </div>
+        </div>
+      </nav>
+
       {currentPage === 'dashboard' && (
         <>
-          <header className="dashboard-header">
-            <div className="header-content">
-              <h1>Dashboard</h1>
-              <nav className="tabs">
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    className={`tab ${activeTab === tab.id ? 'active' : ''}`}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    <span className="tab-label">{tab.label}</span>
-                  </button>
-                ))}
-              </nav>
-              <div className="dashboard-controls">
-                <label style={{display: 'flex', alignItems: 'center', marginRight: '1rem', fontSize: '0.875rem'}}>
-                  <input
-                    type="checkbox"
-                    checked={autoRefresh}
-                    onChange={(e) => setAutoRefresh(e.target.checked)}
-                    style={{marginRight: '0.5rem'}}
-                  />
-                  Auto-refresh
-                </label>
-                <button 
-                  className="btn-refresh" 
-                  onClick={fetchDashboardData} 
-                  disabled={loading}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    opacity: loading ? 0.6 : 1,
-                    marginRight: '1rem'
-                  }}
-                >
-                  {loading ? '...' : '↻'}
-                </button>
-                <button className="btn-logout" onClick={handleLogout}>Logout</button>
-              </div>
-            </div>
-          </header>
-
-          {/* Status bar */}
-          <div className="status-bar" style={{
-            padding: '0.5rem 1rem',
-            backgroundColor: '#f8f9fa',
-            borderBottom: '1px solid #dee2e6',
-            fontSize: '0.875rem',
-            color: '#6c757d',
-            display: 'flex',
-            justifyContent: 'space-between'
-          }}>
+          {/* Status info */}
+          <div className="status-info">
             <span>
               Last updated: {new Date(lastUpdate).toLocaleTimeString()}
               {autoRefresh && ' • Auto-refresh every 30s'}
@@ -294,10 +294,7 @@ export default function Dashboard() {
             )}
 
             {activeTab === 'history' && (
-              <div className="tab-content">
-                <h2>Move History</h2>
-                <p>Move history content goes here</p>
-              </div>
+              <MoveHistory />
             )}
 
             {activeTab === 'settings' && (
@@ -311,12 +308,36 @@ export default function Dashboard() {
       )}
 
       {currentPage === 'receipt' && (
-        <ReceiptList onBack={() => setCurrentPage('dashboard')} />
+        <>
+          {/* Status info for receipt page */}
+          <div className="status-info">
+            <span>Receipt Management</span>
+            <span>
+              <button onClick={() => setCurrentPage('dashboard')} style={{background: 'none', border: 'none', color: '#007bff', cursor: 'pointer'}}>
+                ← Back to Dashboard
+              </button>
+            </span>
+          </div>
+          <ReceiptList onBack={() => setCurrentPage('dashboard')} />
+        </>
       )}
 
       {currentPage === 'delivery' && (
-        <DeliveryList onBack={() => setCurrentPage('dashboard')} />
+        <>
+          {/* Status info for delivery page */}
+          <div className="status-info">
+            <span>Delivery Management</span>
+            <span>
+              <button onClick={() => setCurrentPage('dashboard')} style={{background: 'none', border: 'none', color: '#007bff', cursor: 'pointer'}}>
+                ← Back to Dashboard
+              </button>
+            </span>
+          </div>
+          <DeliveryList onBack={() => setCurrentPage('dashboard')} />
+        </>
       )}
+      
+      <Footer />
     </div>
   )
 }
