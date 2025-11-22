@@ -6,7 +6,10 @@ function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
@@ -24,23 +27,33 @@ function Signup() {
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/auth/signup', {
+      setLoading(true);
+      const response = await fetch('http://localhost:5001/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loginId, email, password })
+        body: JSON.stringify({ 
+          loginId: loginId, 
+          email: email, 
+          password: password,
+          firstName: firstName,
+          lastName: lastName
+        })
       });
 
-      if (!response.ok) {
-        throw new Error('Signup failed');
-      }
-
       const data = await response.json();
-      const token = data.token;
-      localStorage.setItem('token', token);
-      navigate('/dashboard');
+      
+      if (response.ok) {
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('userInfo', JSON.stringify(data.user));
+        navigate('/dashboard');
+      } else {
+        throw new Error(data.message || 'Signup failed');
+      }
     } catch (err) {
       console.error('Signup failed:', err);
       setError('Signup failed: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -57,6 +70,29 @@ function Signup() {
               onChange={(e) => setLoginId(e.target.value)} 
               placeholder="Choose your login ID"
               required 
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label>First Name:</label>
+            <input 
+              type="text" 
+              value={firstName} 
+              onChange={(e) => setFirstName(e.target.value)} 
+              placeholder="Enter your first name"
+              required 
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label>Last Name:</label>
+            <input 
+              type="text" 
+              value={lastName} 
+              onChange={(e) => setLastName(e.target.value)} 
+              placeholder="Enter your last name"
+              required 
+              disabled={loading}
             />
           </div>
           <div>
@@ -67,6 +103,7 @@ function Signup() {
               onChange={(e) => setEmail(e.target.value)} 
               placeholder="Enter your email"
               required 
+              disabled={loading}
             />
           </div>
           <div>
@@ -77,6 +114,7 @@ function Signup() {
               onChange={(e) => setPassword(e.target.value)} 
               placeholder="Enter password (min. 6 chars)"
               required 
+              disabled={loading}
             />
           </div>
           <div>
@@ -87,9 +125,12 @@ function Signup() {
               onChange={(e) => setConfirmPassword(e.target.value)} 
               placeholder="Confirm password"
               required 
+              disabled={loading}
             />
           </div>
-          <button type="submit">Sign Up</button>
+          <button type="submit" disabled={loading}>
+            {loading ? 'Creating Account...' : 'Sign Up'}
+          </button>
         </form>
 
         <div style={{marginTop: '1.5rem', textAlign: 'center', borderTop: '1px solid #e5e7eb', padding: '0.2rem'}}>
