@@ -7,7 +7,7 @@ import Dashboard from './pages/Dashboard'
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('authToken')
   return token ? children : <Navigate to="/login" />
 }
 

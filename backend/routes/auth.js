@@ -1,355 +1,452 @@
 import express from 'express';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { UserModel } from '../models/User.js';
+import { User } from '../models/User.js';
+import { generateToken, authenticateToken } from '../middleware/auth.js';
+import { 
+  generateOTPWithExpiry, 
+  verifyOTP, 
+  logOTPForTesting 
+} from '../utils/otp.js';
 
 const router = express.Router();
 
-const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-
-// ---------------- Helper Validations ----------------
-
-const validatePassword = (password) => {
-  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/.test(password);
-};
-
-const validateEmail = (email) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
-
-const validateLoginId = (loginId) => {
-  return /^[a-zA-Z0-9_]{3,20}$/.test(loginId);
-};
-
-//
-// ======================== SIGNUP ========================
-//
-router.post('/signup', async (req, res) => {
+// User registration
+router.post('/register', async (req, res) => {
   try {
-    const { loginId, email, password, firstName, lastName } = req.body;
+    const { 
+      loginId, 
+      email, 
+      password, 
+      firstName, 
+      lastName, 
+      userRole = 'viewer' // Default role (admin, manager, operator, viewer)
+    } = req.body;
 
     // Validate required fields
-    if (!loginId || !email || !password) {
-      return res.status(400).json({ error: 'Login ID, email, and password are required' });
-    }
-
-    // Validate login ID format
-    if (!validateLoginId(loginId)) {
-      return res.status(400).json({ error: 'Login ID must be 3-20 characters (letters, digits, underscore only)' });
-    }
-
-    // Validate email format
-    if (!validateEmail(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
+    if (!loginId || !email || !password || !firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required: loginId, email, password, firstName, lastName'
+      });
     }
 
     // Validate password strength
-    if (!validatePassword(password)) {
+    if (password.length < 6) {
       return res.status(400).json({
-        error: "Password must be 8+ chars, include upper, lower, number, and special character"
+        success: false,
+        message: 'Password must be at least 6 characters long'
       });
     }
 
     // Check if user already exists
-    const existingUserByLoginId = await UserModel.getUserByLoginId(loginId);
-    if (existingUserByLoginId) {
-      return res.status(400).json({ error: 'User with this login ID already exists' });
+    const existingUserByLogin = await User.findOne({
+      where: { login_id: loginId }
+    });
+
+    const existingUserByEmail = await User.findOne({
+      where: { email: email }
+    });
+
+    if (existingUserByLogin || existingUserByEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'User with this login ID or email already exists'
+      });
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create user in database
-    const userData = {
-      loginId,
-      email,
+    // Create new user
+    const newUser = await User.create({
+      login_id: loginId,
+      email: email,
       password: hashedPassword,
-      userRole: 'operator', // Changed from 'staff' to 'operator' to match DB constraint
-      firstName: firstName || loginId,
-      lastName: lastName || 'User'
-    };
-
-    const newUser = await UserModel.createUser(userData);
-
-    return res.status(201).json({ 
-      message: "User registered successfully!",
-      user: {
-        id: newUser.user_id,
-        loginId: newUser.login_id,
-        email: newUser.email,
-        role: newUser.user_role,
-        firstName: newUser.first_name,
-        lastName: newUser.last_name
-      }
+      user_role: userRole,
+      first_name: firstName,
+      last_name: lastName
     });
 
-  } catch (err) {
-    console.error('Signup error:', err);
-    
-    // Handle duplicate key errors
-    if (err.name === 'SequelizeUniqueConstraintError') {
-      const field = err.errors[0].path;
-      if (field === 'login_id') {
-        return res.status(400).json({ error: 'User with this login ID already exists' });
-      } else if (field === 'email') {
-        return res.status(400).json({ error: 'User with this email already exists' });
-      }
-    }
-    
-    res.status(500).json({ error: "Internal server error" });
+    // Generate JWT token
+    const token = generateToken(newUser);
+
+    // Return success response (don't send password)
+    const userResponse = {
+      userId: newUser.user_id,
+      loginId: newUser.login_id,
+      email: newUser.email,
+      role: newUser.user_role,
+      firstName: newUser.first_name,
+      lastName: newUser.last_name
+    };
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      token: token,
+      user: userResponse
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Registration failed',
+      error: error.message
+    });
   }
 });
 
-
-//
-// ======================== LOGIN ========================
-//
+// User login
 router.post('/login', async (req, res) => {
   try {
     const { loginId, password } = req.body;
 
     // Validate input
     if (!loginId || !password) {
-      return res.status(400).json({ error: "Login ID and password are required" });
+      return res.status(400).json({
+        success: false,
+        message: 'Login ID and password are required'
+      });
     }
 
-    // Find user in database
-    const user = await UserModel.getUserByLoginId(loginId);
+    // Find user by login_id
+    const user = await User.findOne({
+      where: { login_id: loginId }
+    });
+
     if (!user) {
-      return res.status(401).json({ error: "Invalid Login ID or Password" });
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid login credentials'
+      });
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid Login ID or Password" });
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid login credentials'
+      });
     }
 
     // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.user_id, 
-        loginId: user.login_id, 
-        email: user.email, 
-        role: user.user_role 
-      },
-      SECRET_KEY,
-      { expiresIn: "8h" } // Extended token life for better UX
-    );
+    const token = generateToken(user);
 
-    return res.json({ 
-      message: "Login successful", 
-      token,
+    // Update last login timestamp
+    await user.update({ updated_at: new Date() });
+
+    // Return success response (don't send password)
+    const userResponse = {
+      userId: user.user_id,
+      loginId: user.login_id,
+      email: user.email,
+      role: user.user_role,
+      firstName: user.first_name,
+      lastName: user.last_name
+    };
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      token: token,
+      user: userResponse
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed',
+      error: error.message
+    });
+  }
+});
+
+// Get current user profile (protected route)
+router.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.userId, {
+      attributes: { exclude: ['password'] } // Don't send password
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
       user: {
-        id: user.user_id,
+        userId: user.user_id,
         loginId: user.login_id,
         email: user.email,
         role: user.user_role,
         firstName: user.first_name,
         lastName: user.last_name,
-        fullName: `${user.first_name} ${user.last_name}`
+        createdAt: user.created_at,
+        updatedAt: user.updated_at
       }
     });
 
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: "Internal server error" });
+  } catch (error) {
+    console.error('Profile fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch user profile',
+      error: error.message
+    });
   }
 });
 
+// Update user profile (protected route)
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { firstName, lastName, email } = req.body;
 
-//
-// ======================== REQUEST OTP ========================
-//
-router.post('/request-otp', async (req, res) => {
+    const user = await User.findByPk(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Update user fields
+    await user.update({
+      first_name: firstName || user.first_name,
+      last_name: lastName || user.last_name,
+      email: email || user.email
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        userId: user.user_id,
+        loginId: user.login_id,
+        email: user.email,
+        role: user.user_role,
+        firstName: user.first_name,
+        lastName: user.last_name
+      }
+    });
+
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update profile',
+      error: error.message
+    });
+  }
+});
+
+// Verify token route
+router.post('/verify', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Token is valid',
+    user: req.user
+  });
+});
+
+// Logout route (client-side token removal, but can be used for logging)
+router.post('/logout', authenticateToken, (req, res) => {
+  // In a more advanced setup, you might want to blacklist tokens
+  res.json({
+    success: true,
+    message: 'Logged out successfully'
+  });
+});
+
+// Forgot password - Send OTP
+router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
 
     if (!email) {
-      return res.status(400).json({ error: "Email is required" });
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
     }
 
-    // Find user by email in database
-    const users = await UserModel.getAllUsers();
-    const user = users.find(u => u.email === email);
-    
+    // Find user by email
+    const user = await User.findOne({
+      where: { email: email }
+    });
+
     if (!user) {
-      return res.status(404).json({ error: "No account found with this email" });
+      // Don't reveal if email exists or not for security
+      return res.json({
+        success: true,
+        message: 'If the email exists, an OTP has been sent'
+      });
     }
 
     // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+    const { otp } = generateOTPWithExpiry();
+    
+    // Debug logging
+    console.log('OTP Generation Debug:');
+    console.log('- Email:', email);
+    console.log('- OTP:', otp);
+    console.log('- Generated at:', new Date().toISOString());
 
-    // Store OTP in database (using otp_secret field temporarily)
-    await UserModel.updateUser(user.user_id, {
-      otpSecret: JSON.stringify({ otp, expiry: otpExpiry })
+    // Save OTP to database
+    await user.update({
+      reset_otp: otp,
+      reset_otp_expires: null
     });
 
-    console.log("Generated OTP (Demo):", otp, "for", email);
+    // Log OTP to console for development/testing
+    logOTPForTesting(email, otp);
 
-    return res.json({ 
-      message: "OTP sent successfully", 
-      otp: process.env.NODE_ENV === 'development' ? otp : undefined // Only show in dev
+    res.json({
+      success: true,
+      message: 'OTP sent successfully. Check the console for OTP.',
+      otp: otp // Include OTP in response for development
     });
 
-  } catch (err) {
-    console.error('Request OTP error:', err);
-    res.status(500).json({ error: "Internal server error" });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process forgot password request'
+    });
   }
 });
 
+// Verify OTP
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
 
-//
-// ======================== RESET PASSWORD ========================
-//
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email and OTP are required'
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({
+      where: { email: email }
+    });
+
+    if (!user || !user.reset_otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Verify OTP
+    const otpVerification = verifyOTP(
+      user.reset_otp,
+      user.reset_otp_expires,
+      otp
+    );
+
+    if (!otpVerification.valid) {
+      return res.status(400).json({
+        success: false,
+        message: otpVerification.reason
+      });
+    }
+
+    // OTP is valid - generate temporary reset token
+    const resetToken = generateToken(user);
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      resetToken: resetToken
+    });
+
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify OTP'
+    });
+  }
+});
+
+// Reset password
 router.post('/reset-password', async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
 
     if (!email || !otp || !newPassword) {
-      return res.status(400).json({ error: "Email, OTP, and new password are required" });
+      return res.status(400).json({
+        success: false,
+        message: 'Email, OTP, and new password are required'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
     }
 
     // Find user by email
-    const users = await UserModel.getAllUsers();
-    const user = users.find(u => u.email === email);
-    
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    const user = await User.findOne({
+      where: { email: email }
+    });
 
-    // Get user with OTP data
-    const userWithOtp = await UserModel.getUserByLoginId(user.login_id);
-    
-    if (!userWithOtp.otp_secret) {
-      return res.status(400).json({ error: "No OTP request found. Please request a new OTP." });
-    }
-
-    // Parse OTP data
-    let otpData;
-    try {
-      otpData = JSON.parse(userWithOtp.otp_secret);
-    } catch {
-      return res.status(400).json({ error: "Invalid OTP data. Please request a new OTP." });
-    }
-
-    // Verify OTP
-    if (!otp || otpData.otp !== otp) {
-      return res.status(400).json({ error: "Invalid OTP" });
-    }
-
-    // Check expiry
-    if (Date.now() > otpData.expiry) {
-      return res.status(400).json({ error: "OTP expired. Please request a new one." });
-    }
-
-    // Validate new password
-    if (!validatePassword(newPassword)) {
+    if (!user || !user.reset_otp) {
       return res.status(400).json({
-        error: "Password must be 8+ chars, include upper, lower, number & special char"
+        success: false,
+        message: 'Invalid or expired OTP'
+      });
+    }
+
+    // Verify OTP one more time
+    const otpVerification = verifyOTP(
+      user.reset_otp,
+      user.reset_otp_expires,
+      otp
+    );
+
+    if (!otpVerification.valid) {
+      return res.status(400).json({
+        success: false,
+        message: otpVerification.reason
       });
     }
 
     // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
     // Update password and clear OTP
-    await UserModel.updateUser(user.user_id, {
+    await user.update({
       password: hashedPassword,
-      otpSecret: null
+      reset_otp: null,
+      reset_otp_expires: null
     });
 
-    return res.json({ message: "Password reset successful" });
-
-  } catch (err) {
-    console.error('Reset password error:', err);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-
-//
-// ======================== PROTECTED ROUTE ========================
-router.get('/protected', async (req, res) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.sendStatus(401);
-
-    jwt.verify(token, SECRET_KEY, async (err, decoded) => {
-      if (err) return res.sendStatus(403);
-      
-      try {
-        // Get user from database
-        const user = await UserModel.getUserById(decoded.userId);
-        if (!user) {
-          return res.status(404).json({ error: 'User not found' });
-        }
-
-        res.json({ 
-          message: `Welcome ${user.login_id}!`, 
-          user: {
-            id: user.user_id,
-            loginId: user.login_id,
-            role: user.user_role,
-            fullName: `${user.first_name} ${user.last_name}`
-          }
-        });
-      } catch (dbErr) {
-        console.error('Database error in protected route:', dbErr);
-        res.status(500).json({ error: 'Internal server error' });
-      }
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
     });
-  } catch (err) {
-    console.error('Protected route error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
 
-// ======================== GET CURRENT USER ========================
-router.get('/me', async (req, res) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    jwt.verify(token, SECRET_KEY, async (err, decoded) => {
-      if (err) {
-        if (err.name === 'TokenExpiredError') {
-          return res.status(403).json({ error: 'Token expired' });
-        }
-        return res.status(403).json({ error: 'Invalid token' });
-      }
-      
-      try {
-        // Get user from database
-        const user = await UserModel.getUserById(decoded.userId);
-        if (!user) {
-          return res.status(404).json({ error: 'User not found' });
-        }
-
-        res.json({
-          id: user.user_id,
-          loginId: user.login_id,
-          email: user.email,
-          role: user.user_role,
-          firstName: user.first_name,
-          lastName: user.last_name,
-          fullName: `${user.first_name} ${user.last_name}`,
-          createdAt: user.created_at
-        });
-      } catch (dbErr) {
-        console.error('Database error in /me:', dbErr);
-        res.status(500).json({ error: 'Internal server error' });
-      }
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset password'
     });
-  } catch (err) {
-    console.error('Auth /me error:', err);
-    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

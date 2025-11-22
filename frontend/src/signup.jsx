@@ -40,43 +40,31 @@ function Signup() {
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/auth/signup', {
+      setLoading(true);
+      const response = await fetch('http://localhost:5001/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          loginId, 
-          email, 
-          password, 
-          firstName: firstName || loginId,
-          lastName: lastName || 'User'
+          loginId: loginId, 
+          email: email, 
+          password: password,
+          firstName: firstName,
+          lastName: lastName
         })
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Signup failed');
-      }
-
-      // Signup successful - now login to get token
-      const loginResponse = await fetch('http://localhost:5001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loginId, password })
-      });
-
-      if (loginResponse.ok) {
-        const loginData = await loginResponse.json();
-        localStorage.setItem('token', loginData.token);
+      
+      if (response.ok) {
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('userInfo', JSON.stringify(data.user));
         navigate('/dashboard');
       } else {
-        // Account created but login failed - redirect to login page
-        alert('Account created successfully! Please log in.');
-        navigate('/login');
+        throw new Error(data.message || 'Signup failed');
       }
     } catch (err) {
       console.error('Signup failed:', err);
-      setError(err.message || 'Signup failed. Please try again.');
+      setError('Signup failed: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -99,6 +87,28 @@ function Signup() {
             />
           </div>
           <div>
+            <label>First Name:</label>
+            <input 
+              type="text" 
+              value={firstName} 
+              onChange={(e) => setFirstName(e.target.value)} 
+              placeholder="Enter your first name"
+              required 
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label>Last Name:</label>
+            <input 
+              type="text" 
+              value={lastName} 
+              onChange={(e) => setLastName(e.target.value)} 
+              placeholder="Enter your last name"
+              required 
+              disabled={loading}
+            />
+          </div>
+          <div>
             <label>Email:</label>
             <input 
               type="email" 
@@ -106,26 +116,6 @@ function Signup() {
               onChange={(e) => setEmail(e.target.value)} 
               placeholder="Enter your email"
               required 
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label>First Name (Optional):</label>
-            <input 
-              type="text" 
-              value={firstName} 
-              onChange={(e) => setFirstName(e.target.value)} 
-              placeholder="Your first name"
-              disabled={loading}
-            />
-          </div>
-          <div>
-            <label>Last Name (Optional):</label>
-            <input 
-              type="text" 
-              value={lastName} 
-              onChange={(e) => setLastName(e.target.value)} 
-              placeholder="Your last name"
               disabled={loading}
             />
           </div>
