@@ -1,7 +1,4 @@
 -- COMPLETE INVENTORY MANAGEMENT DATABASE SETUP
--- Single file with all tables and sample data
--- Execute this file to create the complete database structure with test data
-
 -- ==============================================
 -- TABLE CREATION SECTION
 -- ==============================================
@@ -190,39 +187,6 @@ CREATE TABLE IF NOT EXISTS move_history (
     responsible_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
     description TEXT
 );
-
--- Dashboard Tables
-CREATE TABLE IF NOT EXISTS notifications (
-    notification_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-    title VARCHAR(255) NOT NULL,
-    message TEXT,
-    type VARCHAR(50) CHECK (type IN ('info', 'warning', 'error', 'success')),
-    is_read BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS system_settings (
-    setting_id SERIAL PRIMARY KEY,
-    setting_key VARCHAR(100) UNIQUE NOT NULL,
-    setting_value TEXT,
-    description TEXT,
-    updated_by INTEGER REFERENCES users(user_id),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS dashboard_widgets (
-    widget_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
-    widget_type VARCHAR(50) NOT NULL,
-    position_x INTEGER DEFAULT 0,
-    position_y INTEGER DEFAULT 0,
-    width INTEGER DEFAULT 1,
-    height INTEGER DEFAULT 1,
-    is_visible BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- ==============================================
 -- INDEXES SECTION
 -- ==============================================

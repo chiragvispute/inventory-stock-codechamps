@@ -8,17 +8,17 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const query = `
-      SELECT do.delivery_order_id, do.reference, do.schedule_date, 
-             do.status, do.created_at,
+      SELECT delo.delivery_order_id, delo.reference, delo.schedule_date, 
+             delo.status, delo.created_at,
              c.name as customer_name,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as from_location_name, w.name as warehouse_name
-      FROM delivery_orders do
-      LEFT JOIN customers c ON do.customer_id = c.customer_id
-      LEFT JOIN users u ON do.responsible_user_id = u.user_id
-      LEFT JOIN locations l ON do.from_location_id = l.location_id
+      FROM delivery_orders delo
+      LEFT JOIN customers c ON delo.customer_id = c.customer_id
+      LEFT JOIN users u ON delo.responsible_user_id = u.user_id
+      LEFT JOIN locations l ON delo.from_location_id = l.location_id
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
-      ORDER BY do.created_at DESC
+      ORDER BY delo.created_at DESC
     `;
     const result = await sequelize.query(query, { type: QueryTypes.SELECT });
     res.json(result);
@@ -39,17 +39,17 @@ router.get('/:id', async (req, res) => {
     
     // Get delivery order header
     const orderQuery = `
-      SELECT do.delivery_order_id, do.reference, do.schedule_date, 
-             do.status, do.created_at,
+      SELECT delo.delivery_order_id, delo.reference, delo.schedule_date, 
+             delo.status, delo.created_at,
              c.name as customer_name, c.contact_person as customer_contact,
              u.first_name || ' ' || u.last_name as responsible_user,
              l.name as from_location_name, w.name as warehouse_name
-      FROM delivery_orders do
-      LEFT JOIN customers c ON do.customer_id = c.customer_id
-      LEFT JOIN users u ON do.responsible_user_id = u.user_id
-      LEFT JOIN locations l ON do.from_location_id = l.location_id
+      FROM delivery_orders delo
+      LEFT JOIN customers c ON delo.customer_id = c.customer_id
+      LEFT JOIN users u ON delo.responsible_user_id = u.user_id
+      LEFT JOIN locations l ON delo.from_location_id = l.location_id
       LEFT JOIN warehouses w ON l.warehouse_id = w.warehouse_id
-      WHERE do.delivery_order_id = $1
+      WHERE delo.delivery_order_id = $1
     `;
     
     const orderResult = await sequelize.query(orderQuery, { replacements: [deliveryOrderId], type: QueryTypes.SELECT });
@@ -91,15 +91,17 @@ router.post('/', async (req, res) => {
       reference,
       scheduleDate,
       customerId,
-      responsibleUserId,
       fromLocationId,
       items
     } = req.body;
     
+    // Get responsible user ID from authenticated user
+    const responsibleUserId = req.user?.userId;
+    
     // Validate required fields
     if (!reference || !scheduleDate || !responsibleUserId || !fromLocationId) {
       return res.status(400).json({ 
-        error: 'Missing required fields: reference, scheduleDate, responsibleUserId, fromLocationId' 
+        error: 'Missing required fields: reference, scheduleDate, fromLocationId. User must be authenticated.' 
       });
     }
     

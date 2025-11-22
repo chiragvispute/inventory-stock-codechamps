@@ -102,15 +102,17 @@ router.post('/', async (req, res) => {
       reference,
       scheduleDate,
       supplierId,
-      responsibleUserId,
       toLocationId,
       items
     } = req.body;
     
+    // Get responsible user ID from authenticated user
+    const responsibleUserId = req.user?.userId;
+    
     // Validate required fields
     if (!reference || !scheduleDate || !responsibleUserId || !toLocationId) {
       return res.status(400).json({ 
-        error: 'Missing required fields: reference, scheduleDate, responsibleUserId, toLocationId' 
+        error: 'Missing required fields: reference, scheduleDate, toLocationId. User must be authenticated.' 
       });
     }
     

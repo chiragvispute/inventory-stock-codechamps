@@ -73,15 +73,15 @@ router.post('/', async (req, res) => {
       locationId,
       oldQuantity,
       newQuantity,
-      reason,
-      responsibleUserId
+      reason
     } = req.body;
     
-    // Validate required fields
+    // Get responsible user ID from authenticated user
+    const responsibleUserId = req.user?.userId;
     if (!productId || !locationId || oldQuantity === undefined || 
         newQuantity === undefined || !reason || !responsibleUserId) {
       return res.status(400).json({ 
-        error: 'Missing required fields: productId, locationId, oldQuantity, newQuantity, reason, responsibleUserId' 
+        error: 'Missing required fields: productId, locationId, oldQuantity, newQuantity, reason. User must be authenticated.' 
       });
     }
     
