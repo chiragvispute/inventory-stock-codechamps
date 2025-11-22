@@ -5,6 +5,7 @@ import { pool, sequelize } from './db.js';
 import { initializeDatabase, checkDatabaseHealth } from './database.js';
 
 // Import routes
+import authRoutes from './routes/auth.js';
 import dashboardRoutes from './routes/dashboard.js';
 import stockRoutes from './routes/stock.js';
 import userRoutes from './routes/users.js';
@@ -25,7 +26,12 @@ dotenv.config();
 const app = express();
 const PORT = 5001;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://your-frontend-domain.com' 
+    : 'http://localhost:5173',  // Updated to use correct Vite port
+  credentials: true
+}));
 app.use(express.json());
 
 // Initialize database
@@ -55,6 +61,7 @@ app.use(express.json());
 })();
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/users', userRoutes);
