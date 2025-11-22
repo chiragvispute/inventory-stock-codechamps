@@ -192,14 +192,34 @@ export default function Dashboard() {
                 <button 
                   className="card receipt-card"
                   onClick={() => setCurrentPage('receipt')}
+                  style={{position: 'relative'}}
                 >
                   <div className="card-header">
                     <h2>Receipt</h2>
                     <button className="btn-icon" onClick={(e) => e.stopPropagation()}>+</button>
+                    {autoRefresh && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '0.5rem',
+                        right: '0.5rem',
+                        width: '8px',
+                        height: '8px',
+                        backgroundColor: '#28a745',
+                        borderRadius: '50%',
+                        animation: 'pulse 2s infinite'
+                      }}></div>
+                    )}
                   </div>
                   <div className="card-body">
                     <div className="status-box">
-                      <span className="status-label">{loading ? 'Loading...' : `${dashboardData.receipts.toReceive} to receive`}</span>
+                      <span className="status-label">
+                        {loading ? 'Loading...' : `${dashboardData.receipts.toReceive} to receive`}
+                        {!loading && (
+                          <small style={{display: 'block', fontSize: '0.7rem', color: '#666'}}>
+                            Live updates enabled
+                          </small>
+                        )}
+                      </span>
                     </div>
                     <div className="stats">
                       <div className="stat">
@@ -218,14 +238,34 @@ export default function Dashboard() {
                 <button 
                   className="card delivery-card"
                   onClick={() => setCurrentPage('delivery')}
+                  style={{position: 'relative'}}
                 >
                   <div className="card-header">
                     <h2>Delivery</h2>
                     <button className="btn-icon" onClick={(e) => e.stopPropagation()}>+</button>
+                    {autoRefresh && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '0.5rem',
+                        right: '0.5rem',
+                        width: '8px',
+                        height: '8px',
+                        backgroundColor: '#28a745',
+                        borderRadius: '50%',
+                        animation: 'pulse 2s infinite'
+                      }}></div>
+                    )}
                   </div>
                   <div className="card-body">
                     <div className="status-box">
-                      <span className="status-label">{loading ? 'Loading...' : `${dashboardData.deliveries.toDeliver} to Deliver`}</span>
+                      <span className="status-label">
+                        {loading ? 'Loading...' : `${dashboardData.deliveries.toDeliver} to Deliver`}
+                        {!loading && (
+                          <small style={{display: 'block', fontSize: '0.7rem', color: '#666'}}>
+                            Live updates enabled
+                          </small>
+                        )}
+                      </span>
                     </div>
                     <div className="stats">
                       <div className="stat">
