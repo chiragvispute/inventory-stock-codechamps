@@ -290,6 +290,328 @@
   line-height: 1.6;
 }
 
+/* Search Section Styles */
+.search-section {
+  background: white;
+  border-bottom: 1px solid #e5e5e5;
+  padding: 15px 20px;
+  position: relative;
+}
+
+.search-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.search-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 500px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 10px 15px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.search-settings-btn,
+.clear-search-btn {
+  padding: 10px 12px;
+  border: 2px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search-settings-btn:hover,
+.clear-search-btn:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+}
+
+.clear-search-btn {
+  color: #dc3545;
+  border-color: #dc3545;
+}
+
+.clear-search-btn:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.search-settings-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-width: 500px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  margin-top: 5px;
+}
+
+.search-settings-content {
+  padding: 20px;
+}
+
+.search-settings-content h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.setting-group {
+  margin-bottom: 15px;
+}
+
+.setting-group:last-child {
+  margin-bottom: 0;
+}
+
+.setting-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #555;
+  font-size: 14px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: #666;
+}
+
+.setting-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.search-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 5px;
+}
+
+.search-results-info {
+  background: #f8f9fa;
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border-left: 4px solid #007bff;
+}
+
+.search-results-info p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.stock-wrapper,
+.history-wrapper {
+  position: relative;
+}
+
+/* View Mode Switch Styles */
+.search-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+
+.view-mode-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.view-toggle {
+  display: flex;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.view-btn {
+  padding: 8px 12px;
+  border: none;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 16px;
+  border-right: 1px solid #ddd;
+}
+
+.view-btn:last-child {
+  border-right: none;
+}
+
+.view-btn:hover {
+  background: #f8f9fa;
+}
+
+.view-btn.active {
+  background: #007bff;
+  color: white;
+}
+
+.view-label {
+  font-size: 14px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Kanban Board Styles */
+.operations-kanban-view {
+  margin-top: 20px;
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.kanban-column {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  min-height: 400px;
+}
+
+.column-header {
+  margin: 0 0 15px 0;
+  padding: 10px 15px;
+  border-radius: 6px;
+  text-align: center;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.column-header.waiting {
+  background: #ffc107;
+}
+
+.column-header.preparing {
+  background: #17a2b8;
+}
+
+.column-header.ready {
+  background: #28a745;
+}
+
+.column-header.delivered {
+  background: #6c757d;
+}
+
+.kanban-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.delivery-card {
+  background: white;
+  padding: 15px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.delivery-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.delivery-card h4 {
+  margin: 0 0 8px 0;
+  color: #007bff;
+  font-size: 16px;
+}
+
+.delivery-card p {
+  margin: 4px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Operations List View */
+.operations-list-view {
+  margin-top: 20px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive design for search */
+@media (max-width: 768px) {
+  .search-section {
+    padding: 10px 15px;
+  }
+  
+  .search-input-group {
+    max-width: 100%;
+  }
+  
+  .search-settings-dropdown {
+    max-width: 100%;
+    left: 15px;
+    right: 15px;
+  }
+  
+  .search-fields {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .search-fields {
+    grid-template-columns: 1fr;
+  }
+  
+  .search-input-group {
+    flex-wrap: wrap;
+  }
+  
+  .search-input {
+    min-width: 200px;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .dashboard-header h1 {
@@ -374,5 +696,146 @@
     align-self: flex-end;
     width: 32px;
     height: 32px;
+  }
+}
+
+/* Responsive design for Kanban */
+@media (max-width: 768px) {
+  .search-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  
+  .view-mode-switch {
+    justify-content: center;
+  }
+  
+  .kanban-board {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  
+  .kanban-column {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .view-toggle {
+    width: 100%;
+  }
+  
+  .view-btn {
+    flex: 1;
+  }
+}
+
+/* Settings Dropdown Styles */
+.settings-content {
+  max-width: 600px;
+  margin: 20px auto;
+  text-align: center;
+}
+
+.settings-dropdown-container {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 30px;
+}
+
+.settings-dropdown-btn {
+  background: white;
+  border: 2px solid #007bff;
+  border-radius: 8px;
+  padding: 15px 25px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #007bff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 200px;
+  transition: all 0.3s ease;
+}
+
+.settings-dropdown-btn:hover {
+  background: #f8f9fa;
+  border-color: #0056b3;
+}
+
+.dropdown-arrow {
+  transition: transform 0.3s ease;
+  font-size: 12px;
+}
+
+.dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.settings-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  width: 100%;
+  padding: 15px 20px;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: #333;
+  transition: background-color 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: #f8f9fa;
+}
+
+.dropdown-item:not(:last-child) {
+  border-bottom: 1px solid #e9ecef;
+}
+
+.dropdown-icon {
+  font-size: 16px;
+}
+
+.settings-description {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.settings-description p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .settings-dropdown-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .settings-content {
+    margin: 20px 15px;
   }
 }
