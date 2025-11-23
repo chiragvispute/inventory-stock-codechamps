@@ -1,9 +1,8 @@
-langchain==0.0.310
-langchain-google-genai==0.0.7
-langserve==0.0.47
-uvicorn==0.24.0
-fastapi==0.104.1
-python-dotenv==1.0.0
-psycopg2-binary==2.9.9
-pydantic==2.5.0
-requests==2.31.0
+langchain
+langchain-google-genai
+langserve
+uvicorn
+fastapi
+python-dotenv
+psycopg2-binary
+requests

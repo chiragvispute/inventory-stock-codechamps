@@ -38,7 +38,7 @@ class InventoryDBConnector:
         """Initialize database connection parameters from environment"""
         self.db_config = {
             'host': os.getenv('DB_HOST', 'localhost'),
-            'port': int(os.getenv('DB_PORT', 5433)),
+            'port': int(os.getenv('DB_PORT', 5432)),
             'database': os.getenv('DB_NAME', 'stockmaster'),
             'user': os.getenv('DB_USER', 'postgres'),
             'password': os.getenv('DB_PASSWORD', ''),
@@ -346,7 +346,7 @@ class InventoryDBConnector:
         stats['total_products'] = result[0]['count'] if result else 0
         
         # Total stock
-        query = "SELECT COALESCE(SUM(quantity), 0) as total FROM stock_levels"
+        query = "SELECT COALESCE(SUM(quantity_on_hand), 0) as total FROM stock_levels"
         result = self.execute_query(query)
         stats['total_stock_units'] = result[0]['total'] if result else 0
         
