@@ -28,6 +28,14 @@ A unified, intelligent inventory management platform featuring:
 - **Scalable Foundation**: Built for forecasting and automated alerting
 
 ## 🎯 Core Capabilities
+- Auth & user management.
+- Product / warehouse / location / supplier / customer data.
+- Receipts (inbound) and deliveries (outbound).
+- Transfers + adjustments with logged history.
+- Movement timeline.
+- KPI dashboard.
+- Stock edit modal with validation.
+- AI chatbot integration.
 
 ### Inventory Operations
 
@@ -54,17 +62,19 @@ A unified, intelligent inventory management platform featuring:
 - **Real-time Updates**: Event-driven inventory tracking
 
 ## 🗄️ Database Architecture
+<img width="2581" height="2181" alt="StockMaster drawio" src="https://github.com/user-attachments/assets/7fe60004-bf5e-4d8b-9b11-9afde86b8303" />
 
-### Core Tables
+**Core tables**: User, Product, Category, Supplier, Customer, Warehouse, Location, StockLevel, Receipt, ReceiptItem, Delivery, DeliveryItem, Transfer, TransferItem, Adjustment, MoveHistory.
 
-- **Users**: Authentication and role management
-- **Warehouses/Locations**: Physical storage hierarchy
-- **Products/Categories**: Product master data
-- **Stock Levels**: Current inventory by location
-- **Suppliers/Customers**: Business entity management
-- **Receipts/Deliveries**: Inbound and outbound transactions
-- **Transfers/Adjustments**: Internal movements and corrections
-- **Move History**: Complete audit trail
+**Key relationships:**
+- Product -> Category, Supplier
+- StockLevel -> Product + Location; Location -> Warehouse
+- Receipt / Delivery / Transfer each have line items referencing Product
+- Adjustment references Product + Location + User
+- MoveHistory logs all quantity-changing events (receipt, delivery, transfer, adjustment)
+
+**Indexes :**
+- products(sku), stock_levels(product_id, location_id), move_history(product_id, moved_at)
 
 ### Data Flow
 
@@ -72,8 +82,20 @@ A unified, intelligent inventory management platform featuring:
 2. **Outbound**: Deliveries → Delivery Items → Stock Level decrease  
 3. **Internal**: Transfers → Transfer Items → Cross-location movement
 4. **Corrections**: Adjustments → Reason tracking → Move History logging
-
-<img width="2581" height="2181" alt="StockMaster drawio" src="https://github.com/user-attachments/assets/7fe60004-bf5e-4d8b-9b11-9afde86b8303" />
+5. 
+## Folder Structure
+```
+frontend/      React + Vite client
+backend/       Express API, migrations, models, routes
+ai-backend/    Python AI agent (tools + DB connector)
+```
+**Key files:**
+- Frontend entry: [frontend/src/main.jsx](frontend/src/main.jsx), app: [frontend/src/App.jsx](frontend/src/App.jsx)
+- Backend server: [backend/server.js](backend/server.js)
+- Backend models: [backend/models](backend/models)
+- Backend routes: [backend/routes](backend/routes)
+- DB setup: [backend/setup-db.js](backend/setup-db.js), migrations: [backend/migrations](backend/migrations)
+- AI agent: [ai-backend/ai_agent.py](ai-backend/ai_agent.py), tools: [ai-backend/tools.py](ai-backend/tools.py)
 
 ## 🛠️ Tech Stack
 
@@ -110,7 +132,8 @@ A unified, intelligent inventory management platform featuring:
 
 - **Node.js** 18+ (LTS recommended)
 - **Python** 3.10 or higher
-- **PostgreSQL** 13+ database server
+- **PostgreSQL** 13+ database server. A SQL database matching migrations in [backend/migrations](backend/migrations)
+- Environment variables (.env files)
 - **Google Cloud Account** (for Gemini API access)
 - **Git** (for cloning the repository)
 
@@ -211,20 +234,17 @@ CREATE DATABASE stockmaster;
 CREATE USER stockuser WITH PASSWORD 'your_password';
 GRANT ALL PRIVILEGES ON DATABASE stockmaster TO stockuser;
 ```
-
 ### 2. Initialize Schema
 
 ```bash
 cd backend
 node setup-db.js init
 ```
-
 ### 3. Verify Setup
 
 ```bash
 node setup-db.js health
 ```
-
 ### Database Schema
 
 The system uses a comprehensive schema with the following core entities:
@@ -276,13 +296,13 @@ python ai_agent.py
 
 ```
 Username: admin
-Password: admin123
+Password: Admin123!
 
 Username: manager1  
-Password: manager123
+Password: Manager123!
 
 Username: testuser
-Password: testpass
+Password: Testpass!
 ```
 
 ## 🧪 Testing
@@ -324,6 +344,26 @@ python test_agent.py
 - **Backend**: Nodemon auto-restarts on file changes
 - **AI Service**: Manual restart required for Python changes
 
+## Scripts
+
+- Password update: [backend/scripts/update-passwords.js](backend/scripts/update-passwords.js)
+- OTP utilities: [backend/utils/otp.js](backend/utils/otp.js)
+- Debug DB: [ai-backend/debug_db.py](ai-backend/debug_db.py)
+- Agent tests: [ai-backend/test_agent.py](ai-backend/test_agent.py)
+
+## API (Overview)
+Routes directory: [backend/routes](backend/routes)
+Included resource handlers:
+- Auth: [backend/routes/auth.js](backend/routes/auth.js)
+- Users: [backend/routes/users.js](backend/routes/users.js)
+- Products: [backend/routes/products.js](backend/routes/products.js)
+- Stock: [backend/routes/stock.js](backend/routes/stock.js)
+- Receipts: [backend/routes/receipts.js](backend/routes/receipts.js)
+- Deliveries: [backend/routes/deliveries.js](backend/routes/deliveries.js)
+- Move history: [backend/routes/moveHistory.js](backend/routes/moveHistory.js)
+- Adjustments: [backend/routes/adjustments.js](backend/routes/adjustments.js)
+- Warehouses / locations / suppliers / customers / categories
+
 ### Database Operations
 
 ```bash
@@ -338,54 +378,6 @@ node -e "import('./database.js').then(db => db.resetDatabase())"
 # Update user passwords
 node scripts/update-passwords.js
 ```
-
-## 📁 Project Structure
-
-```
-inventory-stock-codechamps/
-├── frontend/                 # React + Vite application
-│   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   │   ├── Chatbot.jsx        # AI chat interface
-│   │   │   ├── KanbanView.jsx     # Kanban-style layouts
-│   │   │   └── StockEditModal.jsx # Stock editing modal
-│   │   ├── pages/              # Main application pages
-│   │   │   ├── Dashboard.jsx      # Main dashboard
-│   │   │   ├── Stock.jsx          # Inventory management
-│   │   │   └── Landing.jsx        # Landing page
-│   │   └── styles/             # Component-specific CSS
-│   ├── package.json           # Frontend dependencies
-│   └── vite.config.js         # Vite configuration
-│
-├── backend/                  # Node.js Express API
-│   ├── routes/               # API route handlers
-│   │   ├── auth.js            # Authentication
-│   │   ├── stock.js           # Inventory operations
-│   │   ├── products.js        # Product management
-│   │   └── dashboard.js       # Analytics endpoints
-│   ├── models/               # Sequelize ORM models
-│   ├── migrations/           # Database schema
-│   │   └── complete_database.sql
-│   ├── middleware/           # Express middleware
-│   ├── server.js             # Express server entry
-│   └── package.json          # Backend dependencies
-│
-├── ai-backend/              # Python FastAPI AI service
-│   ├── ai_agent.py           # Main AI service
-│   ├── tools.py              # AI tool functions
-│   ├── db_connector.py       # Database connector
-│   └── requirements.txt      # Python dependencies
-│
-└── test-api.sh              # API testing script
-
-### Environment Setup
-
-1. **Database**: Use managed PostgreSQL (AWS RDS, Google Cloud SQL, etc.)
-2. **Backend**: Deploy to services like Railway, Heroku, or DigitalOcean
-3. **Frontend**: Deploy to Vercel, Netlify, or serve via reverse proxy
-4. **AI Service**: Deploy to cloud with GPU support if needed
-
-- [ ] Configure rate limiting
 
 ## 🌟 Features Overview
 
@@ -426,31 +418,38 @@ inventory-stock-codechamps/
 
 ## 📷 Screenshots
 Landing Page
-<img width="1896" height="991" alt="image" src="https://github.com/user-attachments/assets/7c6aca56-1207-48f4-8b88-04caa3e41764" />
+<img width="1900" height="877" alt="Screenshot 2025-11-23 161752" src="https://github.com/user-attachments/assets/cae6a630-f491-45d7-9293-c1dc86e84b12" />
 
 Login Page
-<img width="1912" height="982" alt="image" src="https://github.com/user-attachments/assets/7c5d9d6f-41e1-4fcd-8b1e-bd788554d11a" />
+<img width="1912" height="982" alt="Screenshot 2025-11-23 161809" src="https://github.com/user-attachments/assets/129a3069-b0a9-4aab-b034-3804f4751628" />
 
 Dashboard
-<img width="1901" height="991" alt="image" src="https://github.com/user-attachments/assets/79a03a73-fe48-458f-b23f-06b3448cb58d" />
+<img width="1901" height="991" alt="Screenshot 2025-11-23 161833" src="https://github.com/user-attachments/assets/44563803-b953-45c8-9874-a01e75b20369" />
+
 
 Stocks Tab
-<img width="1903" height="985" alt="image" src="https://github.com/user-attachments/assets/4d508f7b-191f-4aaf-9588-7be2b6f0fb98" />
+<img width="1903" height="985" alt="Screenshot 2025-11-23 161848" src="https://github.com/user-attachments/assets/002d3833-0f94-49c6-b13f-d5451ed61704" />
+
 
 Move History Tab
-<img width="1906" height="987" alt="image" src="https://github.com/user-attachments/assets/c6d30bd3-69aa-4c5e-b79d-21fa1e55df5a" />
+<img width="1906" height="987" alt="Screenshot 2025-11-23 161908" src="https://github.com/user-attachments/assets/519ccaff-365b-4080-bb1b-0242bc970adc" />
+
 
 Kanban View
-<img width="1903" height="989" alt="image" src="https://github.com/user-attachments/assets/e2fc59f0-c50f-4274-8d7d-cd53935f70f5" />
+<img width="1903" height="989" alt="Screenshot 2025-11-23 161930" src="https://github.com/user-attachments/assets/edc89bc7-85c1-432a-b11b-9d6c594b70b4" />
+
 
 Receipts Page
-<img width="1903" height="981" alt="image" src="https://github.com/user-attachments/assets/d7b3c335-5253-463b-aef7-205dff9e6afd" />
+<img width="1903" height="981" alt="Screenshot 2025-11-23 162002" src="https://github.com/user-attachments/assets/ee51535c-0879-4d1f-baff-6f057c1d3a6b" />
+
 
 Delivery Page
-<img width="1896" height="985" alt="image" src="https://github.com/user-attachments/assets/2078a7a9-4149-4b35-a796-4cea8e81b2cf" />
+<img width="1896" height="985" alt="Screenshot 2025-11-23 162016" src="https://github.com/user-attachments/assets/ed820c8a-197e-487f-97ac-a40de315d311" />
+
 
 AI- Chatbot
-<img width="1900" height="977" alt="image" src="https://github.com/user-attachments/assets/83463799-7583-45d3-be1b-557bc5dca6de" />
+<img width="1900" height="977" alt="Screenshot 2025-11-23 162158" src="https://github.com/user-attachments/assets/bdb06731-0827-4661-b087-dab2c6609dc7" />
+
 
 
 ### Code Style
@@ -480,7 +479,7 @@ brew services list postgresql     # macOS
 
 # Verify connection settings
 psql -h localhost -U postgres -d stockmaster
-```
+
 
 **Frontend Not Loading**
 
@@ -516,6 +515,20 @@ pip install -r requirements.txt --upgrade
 - Examine browser console for frontend errors
 - Check server logs for backend issues
 
+## Testing API
+See root helper: [test-api.sh](test-api.sh)
+
+Example (adjust endpoints):
+```sh
+bash test-api.sh
+```
+## Contributing
+
+1. Fork repository
+2. Create feature branch
+3. Ensure lint passes
+4. Submit pull request
+
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -532,6 +545,47 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [FastAPI](https://fastapi.tiangolo.com/) - Python API framework
 - [Google Gemini](https://ai.google.com/) - AI language model
 - [Sequelize](https://sequelize.org/) - ORM
+
+  ## 📁 Project Structure
+
+```
+inventory-stock-codechamps/
+├── frontend/                 # React + Vite application
+│   ├── src/
+│   │   ├── components/         # Reusable UI components
+│   │   │   ├── Chatbot.jsx        # AI chat interface
+│   │   │   ├── KanbanView.jsx     # Kanban-style layouts
+│   │   │   └── StockEditModal.jsx # Stock editing modal
+│   │   ├── pages/              # Main application pages
+│   │   │   ├── Dashboard.jsx      # Main dashboard
+│   │   │   ├── Stock.jsx          # Inventory management
+│   │   │   └── Landing.jsx        # Landing page
+│   │   └── styles/             # Component-specific CSS
+│   ├── package.json           # Frontend dependencies
+│   └── vite.config.js         # Vite configuration
+│
+├── backend/                  # Node.js Express API
+│   ├── routes/               # API route handlers
+│   │   ├── auth.js            # Authentication
+│   │   ├── stock.js           # Inventory operations
+│   │   ├── products.js        # Product management
+│   │   └── dashboard.js       # Analytics endpoints
+│   ├── models/               # Sequelize ORM models
+│   ├── migrations/           # Database schema
+│   │   └── complete_database.sql
+│   ├── middleware/           # Express middleware
+│   ├── server.js             # Express server entry
+│   └── package.json          # Backend dependencies
+│
+├── ai-backend/              # Python FastAPI AI service
+│   ├── ai_agent.py           # Main AI service
+│   ├── tools.py              # AI tool functions
+│   ├── db_connector.py       # Database connector
+│   └── requirements.txt      # Python dependencies
+│
+└── test-api.sh              # API testing script
+
+
 
 ### Contributors
 
