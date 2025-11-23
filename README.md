@@ -425,6 +425,33 @@ inventory-stock-codechamps/
 - Password hashing with bcrypt
 
 ## 📷 Screenshots
+Landing Page
+<img width="1896" height="991" alt="image" src="https://github.com/user-attachments/assets/7c6aca56-1207-48f4-8b88-04caa3e41764" />
+
+Login Page
+<img width="1912" height="982" alt="image" src="https://github.com/user-attachments/assets/7c5d9d6f-41e1-4fcd-8b1e-bd788554d11a" />
+
+Dashboard
+<img width="1901" height="991" alt="image" src="https://github.com/user-attachments/assets/79a03a73-fe48-458f-b23f-06b3448cb58d" />
+
+Stocks Tab
+<img width="1903" height="985" alt="image" src="https://github.com/user-attachments/assets/4d508f7b-191f-4aaf-9588-7be2b6f0fb98" />
+
+Move History Tab
+<img width="1906" height="987" alt="image" src="https://github.com/user-attachments/assets/c6d30bd3-69aa-4c5e-b79d-21fa1e55df5a" />
+
+Kanban View
+<img width="1903" height="989" alt="image" src="https://github.com/user-attachments/assets/e2fc59f0-c50f-4274-8d7d-cd53935f70f5" />
+
+Receipts Page
+<img width="1903" height="981" alt="image" src="https://github.com/user-attachments/assets/d7b3c335-5253-463b-aef7-205dff9e6afd" />
+
+Delivery Page
+<img width="1896" height="985" alt="image" src="https://github.com/user-attachments/assets/2078a7a9-4149-4b35-a796-4cea8e81b2cf" />
+
+AI- Chatbot
+<img width="1900" height="977" alt="image" src="https://github.com/user-attachments/assets/83463799-7583-45d3-be1b-557bc5dca6de" />
+
 
 ### Code Style
 
